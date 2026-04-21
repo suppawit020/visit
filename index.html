@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visit / DC Check</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="app">
+
+        <div class="header">
+            <h1>Visit / DC Check</h1>
+            <span class="rec-badge" id="rec-count">0 records</span>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('new')">New Visit</div>
+            <div class="tab" onclick="switchTab('list')">All Visits</div>
+            <div class="tab" onclick="switchTab('profile')">Profile</div>
+        </div>
+
+        <div id="tab-new">
+
+            <div class="card">
+                <div class="section-title">Visit Information</div>
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label>Outlet Name <span class="req">*</span></label>
+                        <input type="text" id="f-outlet" placeholder="e.g. The Empire Bar">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Area <span class="req">*</span></label>
+                        <select id="f-area">
+            <option value="">Select area</option>
+            <option>BKK</option>
+            <option>NORTH</option>
+            <option>NORTHEAST</option>
+            <option>WEST</option>
+            <option>EAST</option>
+            <option>SOUTH</option>
+          </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Person You Met <span class="req">*</span></label>
+                        <input type="text" id="f-person" placeholder="Full name">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Their Position <span class="req">*</span></label>
+                        <select id="f-position">
+            <option value="">Select position</option>
+            <option>CEO</option>
+            <option>CFO</option>
+            <option>OWNER</option>
+            <option>BARTENDER</option>
+            <option>F&amp;B MANAGER</option>
+            <option>MANAGER</option>
+            <option value="__other__">ETC — Please Type</option>
+          </select>
+                    </div>
+
+                    <div class="form-group full" id="pos-other-wrap" style="display:none">
+                        <label>Specify Position <span class="req">*</span></label>
+                        <input type="text" id="f-pos-other" placeholder="Enter position">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Visit Date <span class="req">*</span></label>
+                        <input type="date" id="f-date">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Reason for Visit <span class="req">*</span></label>
+                        <textarea id="f-reason" rows="2" placeholder="Purpose of this visit..."></textarea>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Result of Visit <span class="req">*</span></label>
+                        <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="section-title">
+                    Photos
+                    <span id="photo-counter" style="font-size:11px;color:#888;font-weight:400;text-transform:none;letter-spacing:0">0 / 10</span>
+                </div>
+
+                <div class="photo-area" id="drop-zone">
+                    <input type="file" id="f-photos" accept="image/*" multiple>
+
+                    <div id="upload-prompt">
+                        <div class="photo-icon">
+                            <svg viewBox="0 0 24 24">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M9 5l1.5-2h3L15 5"/>
+            </svg>
+                        </div>
+                        <p><strong>Click to upload photos</strong> or drag and drop</p>
+                        <p>JPG, PNG · up to 10 photos</p>
+                    </div>
+
+                    <div class="photo-previews" id="previews"></div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn-secondary" onclick="clearForm()">Clear</button>
+                <button class="btn-primary" onclick="saveVisit()">Save Visit</button>
+            </div>
+
+        </div>
+        <div id="tab-list" style="display:none">
+
+            <div class="filters">
+                <select class="filter-select" id="fl-area" onchange="renderList()">
+        <option value="">All areas</option>
+        <option>BKK</option>
+        <option>NORTH</option>
+        <option>NORTHEAST</option>
+        <option>WEST</option>
+        <option>EAST</option>
+        <option>SOUTH</option>
+      </select>
+
+                <select class="filter-select" id="fl-pos" onchange="renderList()">
+        <option value="">All positions</option>
+        <option>CEO</option>
+        <option>CFO</option>
+        <option>OWNER</option>
+        <option>BARTENDER</option>
+        <option>F&amp;B MANAGER</option>
+        <option>MANAGER</option>
+      </select>
+
+                <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet or person..." oninput="renderList()" style="min-width:180px">
+            </div>
+
+            <div class="visit-list" id="visit-list"></div>
+
+        </div>
+        <div id="tab-profile" style="display:none">
+            <div class="card">
+                <div class="section-title">My Profile</div>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Real Name</label>
+                        <input type="text" id="pf-name" placeholder="e.g. John Doe">
+                    </div>
+                    <div class="form-group full">
+                        <label>Email</label>
+                        <input type="email" id="pf-email" placeholder="e.g. john@example.com">
+                    </div>
+                    <div class="form-group full">
+                        <label>Your Position</label>
+                        <input type="text" id="pf-position" placeholder="e.g. Sales Executive">
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+            </div>
+        </div>
+    </div>
+    <div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
+        <div class="detail-box">
+            <button class="detail-close" onclick="closeDetail()">✕</button>
+            <div id="detail-content"></div>
+        </div>
+    </div>
+
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <img id="lb-img" src="" alt="Photo">
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
