@@ -1,26 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600&display=swap');
-
 :root {
-    /* Main Background & Cards */
     --bg-color: #F7F7F8;
     --card-bg: #FFFFFF;
     --text-main: #333333;
     --text-muted: #888888;
     --border-light: #EBEBEB;
-    
-    /* Primary Colors (Sage Green) */
     --primary: #7C9082;
     --primary-hover: #677B6D;
     --focus-ring: rgba(124, 144, 130, 0.2);
-    
-    /* Danger/Alerts */
     --danger: #D48A8A;
-    
-    /* Shadows */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
     --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
-    
-    /* Border Radius */
     --radius-sm: 8px;
     --radius-md: 16px;
     --radius-lg: 20px;
@@ -41,7 +31,7 @@ body {
 }
 
 
-/* ── Layout ── */
+/* Layout */
 
 .app {
     max-width: 800px;
@@ -74,7 +64,7 @@ body {
 }
 
 
-/* ── Tabs ── */
+/* Tabs */
 
 .tabs {
     display: flex;
@@ -108,7 +98,7 @@ body {
 }
 
 
-/* ── Cards ── */
+/* Cards */
 
 .card {
     background: var(--card-bg);
@@ -133,7 +123,7 @@ body {
 }
 
 
-/* ── Form elements ── */
+/* Form elements */
 
 .form-grid {
     display: grid;
@@ -205,84 +195,7 @@ select {
 }
 
 
-/* ── Photo upload ── */
-
-.photo-area {
-    border: 1.5px dashed #D0D0D0;
-    border-radius: var(--radius-md);
-    padding: 2.5rem 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-    background: #FAFAFA;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-/* 📍 Updated Hover Effect */
-.photo-area:hover {
-    border-color: var(--primary) !important;
-    background: #F0F4F2 !important;
-}
-
-.photo-area input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-}
-
-#upload-prompt {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    pointer-events: none;
-    width: 100%;
-}
-
-.photo-icon {
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 16px;
-    border-radius: 50%;
-    background: #FFF;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border-light);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-    position: relative;
-    z-index: 2;
-    pointer-events: none;
-}
-
-.photo-icon svg {
-    width: 22px;
-    height: 22px;
-    stroke: var(--text-muted);
-    fill: none;
-    stroke-width: 1.5;
-}
-
-.photo-area p {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-    position: relative;
-    z-index: 2;
-    pointer-events: none;
-}
-
-.photo-area p strong {
-    color: var(--primary);
-    font-weight: 500;
-}
+/* Photo Upload Thumbnails */
 
 .photo-previews {
     display: flex;
@@ -290,9 +203,6 @@ select {
     flex-wrap: wrap;
     justify-content: center;
     width: 100%;
-    position: relative;
-    z-index: 2;
-    pointer-events: none;
 }
 
 .photo-thumb {
@@ -304,7 +214,6 @@ select {
     border-radius: 12px;
     border: 1px solid #EAEAEA;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-    pointer-events: auto;
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
 }
 
@@ -340,8 +249,6 @@ select {
     transition: all 0.2s ease;
     padding: 0;
     line-height: 1;
-    z-index: 10;
-    pointer-events: auto;
 }
 
 .photo-thumb button:hover {
@@ -352,7 +259,7 @@ select {
 }
 
 
-/* ── Buttons ── */
+/* Buttons */
 
 .btn-primary {
     display: inline-flex;
@@ -418,7 +325,7 @@ select {
 }
 
 
-/* ── Toast ── */
+/* Toast */
 
 .toast {
     position: fixed;
@@ -452,7 +359,7 @@ select {
 }
 
 
-/* ── Visit list ── */
+/* Visit list */
 
 .visit-list {
     display: flex;
@@ -579,7 +486,7 @@ select {
 }
 
 
-/* ── Filters ── */
+/* Filters */
 
 .filters {
     display: flex;
@@ -608,7 +515,7 @@ select {
 }
 
 
-/* ── Detail overlay ── */
+/* Detail overlay */
 
 .detail-overlay {
     display: none;
@@ -725,7 +632,7 @@ select {
 }
 
 
-/* ── Lightbox ── */
+/* Lightbox */
 
 .lightbox {
     display: none;
@@ -752,7 +659,7 @@ select {
 }
 
 
-/* ── Detail Grid Layout ── */
+/* Detail Grid Layout */
 
 .detail-grid {
     display: grid;
@@ -770,76 +677,7 @@ select {
 }
 
 
-/* ── Custom Confirm Dialog (Scrollable Setup) ── */
-
-.confirm-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    z-index: 300;
-    
-    /* 📍 Changed to flex-start to prevent top content cut-off on mobile */
-    align-items: flex-start; 
-    justify-content: center;
-    
-    /* 📍 Increased padding and added scroll */
-    padding: 2rem 1rem;
-    overflow-y: auto;
-}
-
-.confirm-overlay.open {
-    display: flex;
-    animation: fadein 0.2s;
-}
-
-.confirm-box {
-    background: var(--card-bg);
-    border-radius: var(--radius-md);
-    width: 100%;
-    max-width: 380px;
-    padding: 2rem;
-    box-shadow: var(--shadow-md);
-    text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    
-    /* 📍 Centers the box vertically if it's smaller than viewport height */
-    margin: auto; 
-}
-
-.confirm-icon {
-    font-size: 32px;
-    margin-bottom: 12px;
-}
-
-.confirm-box h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-main);
-    margin-bottom: 8px;
-}
-
-.confirm-box p {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin-bottom: 24px;
-    line-height: 1.5;
-}
-
-.confirm-actions {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-}
-
-.confirm-actions button {
-    flex: 1;
-}
-
-
-/* ── Responsive ── */
+/* Responsive */
 
 @media (max-width: 600px) {
     .app {
@@ -864,4 +702,139 @@ select {
     .detail-col-visitor {
         padding: 16px;
     }
+}
+
+
+/* ==========================================================
+   ENHANCED CAMERA UI & SCROLLABLE POPUPS
+   ========================================================== */
+
+
+/* Easy Camera Area */
+
+.easy-camera-container {
+    border: 2px dashed #CED4DA;
+    border-radius: 12px;
+    background: #F8F9FA;
+    padding: 16px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+#camera-idle {
+    padding: 2.5rem 1rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+#camera-idle:hover {
+    background: #E9ECEF;
+}
+
+.ec-icon {
+    font-size: 42px;
+    margin-bottom: 12px;
+    opacity: 0.8;
+}
+
+#camera-idle h3 {
+    font-size: 16px;
+    color: var(--text-main);
+    margin-bottom: 4px;
+}
+
+#camera-idle p {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+
+/* Active Camera Layout */
+
+#camera-active {
+    background: #FFF;
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+#camera-view {
+    width: 100%;
+    max-height: 60vh;
+    border-radius: 8px;
+    background: #000;
+    object-fit: cover;
+    margin-bottom: 12px;
+}
+
+.ec-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-capture-huge {
+    flex: 2;
+    padding: 18px;
+    font-size: 16px;
+    font-weight: 700;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(124, 144, 130, 0.4);
+    transition: transform 0.1s;
+}
+
+.btn-capture-huge:active {
+    transform: scale(0.96);
+}
+
+.btn-close-cam {
+    flex: 1;
+    padding: 18px;
+    font-size: 14px;
+    font-weight: 600;
+    background: #FFEBEB;
+    color: #D48A8A;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+
+/* Scrollable Overlay Fix */
+
+.confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 300;
+    align-items: flex-start;
+    /* Start from top to allow scrolling */
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+    /* Enable Scroll */
+}
+
+.confirm-overlay.open {
+    display: flex;
+    animation: fadein 0.2s;
+}
+
+.confirm-box {
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    width: 100%;
+    margin: auto;
+    /* Centers when content is shorter than screen */
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
