@@ -28,6 +28,12 @@ try {
     bindPositionToggle();
     updateFormState();
 
+    // 📍 ระบบแสดงซ่อนวันที่นัดพบครั้งต่อไป
+    document.getElementById('cb-next-visit').addEventListener('change', function() {
+        document.getElementById('next-visit-wrap').style.display = this.checked ? 'block' : 'none';
+        if(this.checked) document.getElementById('f-next-date').value = today(); // ตั้งค่าเริ่มต้นเป็นวันนี้
+    });
+
     switchTab(isProfileComplete() ? 'new' : 'profile');
     if (!isProfileComplete()) {
         setTimeout(() => toast('Please complete your profile to continue.', false), 500);
@@ -218,14 +224,12 @@ function capturePhoto() {
 
     photos.push(canvas.toDataURL('image/jpeg', 0.7));
     
-    // Flash effect
     video.style.opacity = '0.3';
     setTimeout(() => { video.style.opacity = '1'; }, 150);
 
     updateModalCounter();
     renderPreviews();
     
-    // ถ้าถ่ายครบ 10 รูปให้ปิดกล้องอัตโนมัติ
     if (photos.length >= 10) {
         toast('Reached 10 photos maximum.');
         setTimeout(stopCamera, 500);
@@ -240,7 +244,11 @@ function renderPreviews() {
     if(photos.length > 0) {
         capturedSection.style.display = 'block';
         previewContainer.innerHTML = photos
-            .map((p, i) => `<div class="photo-thumb"><img src="${p}" alt="Preview"><button onclick="removePhoto(${i})">✕</button></div>`)
+            .map((p, i) => `
+            <div class="photo-thumb">
+                <img src="${p}" alt="Preview" onclick="openLightbox('${p}')" title="Click to view">
+                <button onclick="removePhoto(${i})" title="Remove photo">✕</button>
+            </div>`)
             .join('');
     } else {
         capturedSection.style.display = 'none';
@@ -285,7 +293,7 @@ function getCurrentLocation() {
     });
 }
 
-/* ── 🟡 SAVE CONFIRMATION WITH ACTUAL IMAGES ── */
+/* ── 🟡 SAVE CONFIRMATION ── */
 function triggerSaveConfirm() {
     if (!isProfileComplete()) { switchTab('profile'); return; }
 
@@ -295,7 +303,7 @@ function triggerSaveConfirm() {
     const position = getPosition();
     const date = document.getElementById('f-date').value;
     const reason = document.getElementById('f-reason').value.trim();
-    const result = document.getElementById('f-result').value.trim();
+    let result = document.getElementById('f-result').value.trim();
 
     if (!outlet || !area || !person || !position || !date || !reason || !result) {
         toast('Please fill in all required fields (*).', false); return;
@@ -304,12 +312,29 @@ function triggerSaveConfirm() {
         toast('Please capture at least 1 photo.', false); return;
     }
 
-    pendingSaveData = { outlet, area, person, position, date, reason, result };
+    // 📍 ประมวลผลช่อง Follow-up
+    let followUps = [];
+    document.querySelectorAll('.f-followup:checked').forEach(cb => {
+        if(cb.id === 'cb-next-visit') {
+            const nd = document.getElementById('f-next-date').value;
+            followUps.push(nd ? `Schedule Next Visit: ${fmtDate(nd)}` : `Schedule Next Visit`);
+        } else {
+            followUps.push(cb.value);
+        }
+    });
 
-    // 📍 สร้าง HTML รูปภาพให้แสดงในหน้าทบทวนก่อนเซฟ
+    // นำ Follow-up ไปต่อท้ายใน Result
+    let finalResultText = result;
+    if (followUps.length > 0) {
+        finalResultText += `\n\n[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
+    }
+
+    pendingSaveData = { outlet, area, person, position, date, reason, result: finalResultText };
+
     let photosHtml = `<div class="confirm-photo-grid">`;
-    photos.forEach(p => {
-        photosHtml += `<img src="${p}" alt="Evidence">`;
+    photos.forEach((p, index) => {
+        // ให้คลิกดูรูปในหน้า Confirm ได้ด้วย
+        photosHtml += `<img src="${p}" alt="Evidence" onclick="openLightbox('${p}')" style="cursor: zoom-in;" title="Click to view">`;
     });
     photosHtml += `</div>`;
 
@@ -329,8 +354,8 @@ function triggerSaveConfirm() {
             <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(reason).replace(/\n/g, '<br>')}</div>
           </div>
           <div style="margin-top: 12px;">
-            <strong style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Result</strong>
-            <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(result).replace(/\n/g, '<br>')}</div>
+            <strong style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Result & Actions</strong>
+            <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(finalResultText).replace(/\n/g, '<br>')}</div>
           </div>
           <div style="margin-top: 16px; border-top: 1px dashed #eee; padding-top: 12px; font-size: 13px; color: #555;">
             Attached Photos: <strong>${photos.length}</strong>
@@ -399,6 +424,11 @@ function clearForm() {
     document.getElementById('f-position').value = '';
     document.getElementById('pos-other-wrap').style.display = 'none';
     document.getElementById('f-date').value = today();
+    
+    // ล้างช่อง Checkbox Follow up ด้วย
+    document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false);
+    document.getElementById('next-visit-wrap').style.display = 'none';
+
     photos = [];
     renderPreviews();
     stopCamera();
@@ -461,9 +491,9 @@ function openDetail(id) {
     const visitInfo = [['Outlet', v.outlet], ['Area', v.area], ['Date', fmtDate(v.date)], ['Person', v.person], ['Position', v.position], ['Reason', v.reason], ['Result', v.result]];
     const visitorInfo = [['Created By', v.creatorName || '-'], ['Email', v.creatorEmail || '-'], ['Role', v.creatorPosition || '-']];
 
-    const renderFields = (rows) => rows.map(([l, val]) => `<div class="detail-field"><span class="detail-label">${l}</span><span class="detail-value">${esc(val)}</span></div>`).join('');
+    const renderFields = (rows) => rows.map(([l, val]) => `<div class="detail-field"><span class="detail-label">${l}</span><span class="detail-value">${esc(val).replace(/\n/g, '<br>')}</span></div>`).join('');
 
-    const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt=""></div>`).join('')}</div>` : '';
+    const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt="" style="cursor: zoom-in;"></div>`).join('')}</div>` : '';
 
     const topVoidAlert = v.is_voided ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>` : '';
     const bottomVoidAction = !v.is_voided ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">Void Record</button></div>` : '';
