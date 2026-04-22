@@ -168,8 +168,8 @@ function switchTab(tab) {
     document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
 
     if (tab === 'list') {
-        if (supabaseClient) loadVisitsFromDB();
-        else renderList();
+        renderList(); // เรียกใช้งานจาก array ในเครื่องก่อนเลย
+        if (supabaseClient) loadVisitsFromDB(); // ค่อยดึงใหม่เงียบๆ
     }
 }
 
@@ -522,7 +522,7 @@ function openDetail(id) {
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Void System (เช็ค RLS) ── */
+/* ── 🔴 Void System (อัปเดตหน้าจอทันที - Optimistic UI Update) ── */
 function openVoidConfirm(id) {
     voidTargetId = id;
     document.getElementById('void-reason-input').value = '';
@@ -543,7 +543,6 @@ async function executeVoid() {
     toast('Voiding...', true);
 
     try {
-        // 📍 ใส่ .select() ต่อท้าย เพื่อเช็คว่าอัปเดตลงฐานข้อมูลสำเร็จจริงหรือไม่ (หลบการโดน RLS บล็อคแบบเงียบๆ)
         const { data, error } = await supabaseClient
             .from('visits')
             .update({ is_voided: true, void_reason: reasonInput })
@@ -552,17 +551,23 @@ async function executeVoid() {
 
         if (error) throw error;
 
-        // ถ้าอัปเดต 0 แถว (โดน RLS Policy บล็อค) data จะเป็น Array ว่าง
         if (!data || data.length === 0) {
-            toast('❌ Permission Denied: กรุณาเปิดสิทธิ์ UPDATE ใน Supabase RLS ให้กับตาราง visits', false);
+            toast('❌ Permission Denied: Check Supabase RLS policies.', false);
             return;
         }
 
+        // 📍 อัปเดตข้อมูลบนหน้าจอคอมพิวเตอร์และมือถือทันที (ไม่ต้องรอโหลดใหม่)
+        const visitIndex = visits.findIndex(v => v.id === voidTargetId);
+        if (visitIndex !== -1) {
+            visits[visitIndex].is_voided = true;
+            visits[visitIndex].void_reason = reasonInput;
+        }
+        
+        // รีเฟรชหน้าจอ
+        renderList();
+
         toast('Voided successfully.');
         closeDetail();
-        
-        // 📍 รีเฟรชรายการหลัง Void ทันที
-        loadVisitsFromDB();
         
     } catch (err) {
         console.error(err);
