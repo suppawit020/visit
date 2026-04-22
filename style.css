@@ -55,6 +55,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); backgr
 textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 select { cursor: pointer; appearance: auto; }
 
+/* Checkbox Style */
+.checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 6px; }
+@media (min-width: 500px) { .checkbox-grid { grid-template-columns: 1fr 1fr; } }
+.cb-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 400; color: #444; cursor: pointer; }
+.cb-label input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+
 /* Buttons */
 .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 24px; background: var(--primary); color: #FFF; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.2s; box-shadow: var(--shadow-sm); }
 .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124, 144, 130, 0.3); }
@@ -65,7 +71,7 @@ select { cursor: pointer; appearance: auto; }
 .form-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 1.5rem; }
 
 /* Toast */
-.toast { position: fixed; top: 24px; right: 24px; color: #FFF; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; display: none; z-index: 99999; box-shadow: var(--shadow-md); letter-spacing: 0.2px; }
+.toast { position: fixed; top: 24px; right: 24px; color: #FFF; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; display: none; z-index: 999999; box-shadow: var(--shadow-md); letter-spacing: 0.2px; }
 .toast.show { display: block; animation: fadein 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes fadein { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -132,51 +138,27 @@ select { cursor: pointer; appearance: auto; }
    NEW FEATURES: FULLSCREEN CAMERA & CONFIRM PHOTOS
    ========================================================== */
 
-/* 1. Easy Camera Container (Trigger Area) */
-.easy-camera-container {
-    border: 1px solid #EBEBEB;
-    border-radius: 12px;
-    background: #FAFAFA;
-    padding: 24px;
-    text-align: center;
-}
-
-.btn-open-camera {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 14px 32px;
-    border-radius: 30px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(124, 144, 130, 0.3);
-    transition: transform 0.2s, background 0.2s;
-}
-
+.easy-camera-container { border: 1px solid #EBEBEB; border-radius: 12px; background: #FAFAFA; padding: 24px; text-align: center; }
+.btn-open-camera { display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: white; border: none; padding: 14px 32px; border-radius: 30px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(124, 144, 130, 0.3); transition: transform 0.2s, background 0.2s; }
 .btn-open-camera:hover { background: var(--primary-hover); transform: translateY(-2px); }
 .btn-open-camera:active { transform: translateY(0); }
 
-/* Captured Area in the form */
 .captured-section { margin-top: 24px; text-align: left; border-top: 1px solid #EBEBEB; padding-top: 16px; }
 .captured-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
 .photo-previews { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-start; }
 .photo-thumb { position: relative; width: 80px; height: 80px; background: #FFFFFF; padding: 4px; border-radius: 8px; border: 1px solid #EAEAEA; box-shadow: var(--shadow-sm); transition: transform 0.2s; }
 .photo-thumb:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.photo-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; cursor: zoom-in; }
 .photo-thumb button { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; background: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 50%; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); transition: all 0.2s ease; padding: 0; }
 .photo-thumb button:hover { background: var(--danger); color: #FFFFFF; border-color: var(--danger); }
 
-/* 2. Fullscreen Camera Modal */
+/* 2. Fullscreen Camera Modal (Fixed for PC) */
 .camera-modal {
     display: none;
     position: fixed;
-    inset: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: #000;
-    z-index: 9999; /* สูงสุดเพื่อบังทุกอย่าง */
+    z-index: 99999; /* สูงสุดเพื่อให้ทับทุุกอย่าง */
     flex-direction: column;
 }
 
@@ -225,7 +207,9 @@ select { cursor: pointer; appearance: auto; }
 #camera-view {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* ทำให้วิดีโอเต็มจอไม่บิดเบี้ยว */
+    /* 📍 แก้ปัญหาบน PC ไม่ให้ภาพใหญ่จนเบี้ยว */
+    max-height: 100vh;
+    object-fit: contain;
     transition: opacity 0.15s ease;
 }
 
