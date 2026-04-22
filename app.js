@@ -30,7 +30,7 @@ try {
 
     document.getElementById('cb-next-visit').addEventListener('change', function() {
         document.getElementById('next-visit-wrap').style.display = this.checked ? 'block' : 'none';
-        if(this.checked) document.getElementById('f-next-date').value = today();
+        if (this.checked) document.getElementById('f-next-date').value = today();
     });
 
     const followUpCheckboxes = document.querySelectorAll('.f-followup');
@@ -98,9 +98,9 @@ function saveProfile() {
 function updateFormState() {
     const isComplete = isProfileComplete();
     const formElements = document.querySelectorAll('#tab-new input, #tab-new select, #tab-new textarea, #btn-save, #btn-clear');
-    
+
     const btnCam = document.getElementById('btn-start-cam');
-    if(btnCam) {
+    if (btnCam) {
         btnCam.disabled = !isComplete;
         btnCam.style.opacity = isComplete ? '1' : '0.5';
         btnCam.style.cursor = isComplete ? 'pointer' : 'not-allowed';
@@ -127,11 +127,20 @@ async function loadVisitsFromDB(isLoadMore = false) {
 
         if (!error && data) {
             const formattedData = data.map(v => ({
-                id: v.id, outlet: v.outlet, area: v.area, person: v.person,
-                position: v.position, date: v.date, reason: v.reason, result: v.result,
-                photos: v.photos || [], creatorName: v.creator_name,
-                creatorEmail: v.creator_email, creatorPosition: v.creator_position,
-                is_voided: v.is_voided || false, void_reason: v.void_reason || ''
+                id: v.id,
+                outlet: v.outlet,
+                area: v.area,
+                person: v.person,
+                position: v.position,
+                date: v.date,
+                reason: v.reason,
+                result: v.result,
+                photos: v.photos || [],
+                creatorName: v.creator_name,
+                creatorEmail: v.creator_email,
+                creatorPosition: v.creator_position,
+                is_voided: v.is_voided || false,
+                void_reason: v.void_reason || ''
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
@@ -189,7 +198,7 @@ let cameraStream = null;
 
 async function startCamera() {
     if (!isProfileComplete()) return;
-    
+
     const video = document.getElementById('camera-view');
     const modal = document.getElementById('camera-modal');
 
@@ -251,13 +260,13 @@ function capturePhoto() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     photos.push(canvas.toDataURL('image/jpeg', 0.7));
-    
+
     video.style.opacity = '0.3';
     setTimeout(() => { video.style.opacity = '1'; }, 150);
 
     updateModalCounter();
     renderPreviews();
-    
+
     if (photos.length >= 10) {
         toast('Reached 10 photos maximum.');
         setTimeout(stopCamera, 500);
@@ -268,8 +277,8 @@ function renderPreviews() {
     document.getElementById('photo-counter').textContent = `${photos.length} / 10`;
     const previewContainer = document.getElementById('previews');
     const capturedSection = document.getElementById('captured-section');
-    
-    if(photos.length > 0) {
+
+    if (photos.length > 0) {
         capturedSection.style.display = 'block';
         previewContainer.innerHTML = photos
             .map((p, i) => `
@@ -300,7 +309,9 @@ async function uploadPhotosToStorage(recordId) {
             const blob = await res.blob();
             const fileName = `${recordId}/photo_${Date.now()}_${i}.jpg`;
             const { error } = await supabaseClient.storage.from('visit_photos').upload(fileName, blob, {
-                contentType: 'image/jpeg', cacheControl: '3600', upsert: false
+                contentType: 'image/jpeg',
+                cacheControl: '3600',
+                upsert: false
             });
             if (!error) {
                 const { data: urlData } = supabaseClient.storage.from('visit_photos').getPublicUrl(fileName);
@@ -335,7 +346,7 @@ function triggerSaveConfirm() {
 
     let followUps = [];
     document.querySelectorAll('.f-followup:checked').forEach(cb => {
-        if(cb.id === 'cb-next-visit') {
+        if (cb.id === 'cb-next-visit') {
             const nd = document.getElementById('f-next-date').value;
             followUps.push(nd ? `Schedule Next Visit: ${fmtDate(nd)}` : `Schedule Next Visit`);
         } else {
@@ -344,15 +355,18 @@ function triggerSaveConfirm() {
     });
 
     if (!outlet || !area || !person || !position || !date || !reason) {
-        toast('Please fill in all required fields (*).', false); return;
+        toast('Please fill in all required fields (*).', false);
+        return;
     }
 
     if (!result && followUps.length === 0) {
-        toast('Please provide a Result of Visit or select a Follow-up Action.', false); return;
+        toast('Please provide a Result of Visit or select a Follow-up Action.', false);
+        return;
     }
 
     if (photos.length === 0) {
-        toast('Please capture at least 1 photo.', false); return;
+        toast('Please capture at least 1 photo.', false);
+        return;
     }
 
     let finalResultText = result;
@@ -397,7 +411,7 @@ function triggerSaveConfirm() {
           </div>
         </div>
     `;
-    
+
     document.getElementById('save-confirm-text').innerHTML = reviewHtml;
     document.getElementById('save-confirm-overlay').classList.add('open');
 }
@@ -410,7 +424,10 @@ function closeSaveConfirm() {
 async function executeSave() {
     closeSaveConfirm();
     if (!pendingSaveData) return;
-    if (!supabaseClient) { toast('Database disconnected.', false); return; }
+    if (!supabaseClient) {
+        alert('❌ ฐานข้อมูลยังไม่ได้เชื่อมต่อ (เช็ค URL และ KEY ให้ถูกต้อง)');
+        return;
+    }
 
     const saveBtn = document.getElementById('btn-save');
     saveBtn.disabled = true;
@@ -420,31 +437,47 @@ async function executeSave() {
     try {
         const id = Date.now().toString();
         const location = await getCurrentLocation();
+
+        // 1. อัปโหลดรูป
         const newUploadedUrls = await uploadPhotosToStorage(id);
 
         const payload = {
-            id: id, outlet: pendingSaveData.outlet, area: pendingSaveData.area,
-            person: pendingSaveData.person, position: pendingSaveData.position,
-            date: pendingSaveData.date, reason: pendingSaveData.reason,
-            result: pendingSaveData.result, photos: newUploadedUrls,
-            creator_name: userProfile.name, creator_email: userProfile.email,
+            id: id,
+            outlet: pendingSaveData.outlet,
+            area: pendingSaveData.area,
+            person: pendingSaveData.person,
+            position: pendingSaveData.position,
+            date: pendingSaveData.date,
+            reason: pendingSaveData.reason,
+            result: pendingSaveData.result,
+            photos: newUploadedUrls,
+            creator_name: userProfile.name,
+            creator_email: userProfile.email,
             creator_position: userProfile.position,
-            lat: location ? location.lat : null, lng: location ? location.lng : null,
-            is_voided: false, void_reason: null
+            lat: location ? location.lat : null,
+            lng: location ? location.lng : null,
+            is_voided: false,
+            void_reason: null
         };
 
+        // 2. บันทึกลงตาราง
         const { error } = await supabaseClient.from('visits').insert([payload]);
-        if (error) throw error;
-        
-        alert('Visit Record Saved Successfully.');
 
+        // ถ้าฝั่งฐานข้อมูลมีปัญหา (เช่น ติด RLS หรือตารางไม่มี) ให้เด้ง Alert
+        if (error) {
+            alert('❌ Database Error!\n' + error.message);
+            throw error;
+        }
+
+        alert('✅ บันทึกข้อมูลสำเร็จ!');
         clearForm();
         loadVisitsFromDB();
         switchTab('list');
 
     } catch (error) {
         console.error(error);
-        toast('Error saving record.', false);
+        // ถ้าพังกลางทาง ให้เด้ง Alert ฟ้องสาเหตุเลย จะได้แก้ถูกจุด
+        alert('💥 เซฟไม่ผ่าน! สาเหตุ: ' + (error.message || 'เช็ครายละเอียดใน Console'));
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
@@ -458,10 +491,10 @@ function clearForm() {
     document.getElementById('f-position').value = '';
     document.getElementById('pos-other-wrap').style.display = 'none';
     document.getElementById('f-date').value = today();
-    
+
     document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false);
     document.getElementById('next-visit-wrap').style.display = 'none';
-    
+
     const resultReqStar = document.getElementById('result-req-star');
     if (resultReqStar) resultReqStar.style.display = 'inline';
 
@@ -524,8 +557,20 @@ function openDetail(id) {
     const v = visits.find(x => x.id === id);
     if (!v) return;
 
-    const visitInfo = [['Outlet', v.outlet], ['Area', v.area], ['Date', fmtDate(v.date)], ['Person', v.person], ['Position', v.position], ['Reason', v.reason], ['Result', v.result]];
-    const visitorInfo = [['Created By', v.creatorName || '-'], ['Email', v.creatorEmail || '-'], ['Role', v.creatorPosition || '-']];
+    const visitInfo = [
+        ['Outlet', v.outlet],
+        ['Area', v.area],
+        ['Date', fmtDate(v.date)],
+        ['Person', v.person],
+        ['Position', v.position],
+        ['Reason', v.reason],
+        ['Result', v.result]
+    ];
+    const visitorInfo = [
+        ['Created By', v.creatorName || '-'],
+        ['Email', v.creatorEmail || '-'],
+        ['Role', v.creatorPosition || '-']
+    ];
 
     const renderFields = (rows) => rows.map(([l, val]) => `<div class="detail-field"><span class="detail-label">${l}</span><span class="detail-value">${esc(val).replace(/\n/g, '<br>')}</span></div>`).join('');
 
