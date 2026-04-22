@@ -142,7 +142,8 @@ async function loadVisitsFromDB(isLoadMore = false) {
                 is_voided: v.is_voided || false,
                 void_reason: v.void_reason || '',
                 pending_void: v.pending_void || false,
-                pending_void_reason: v.pending_void_reason || ''
+                pending_void_reason: v.pending_void_reason || '',
+                original_id: v.original_id || ''
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
@@ -511,7 +512,13 @@ function renderList() {
     const pos = document.getElementById('fl-pos').value;
     const q = document.getElementById('fl-search').value.toLowerCase();
 
+    // Hide original records that have been superseded by a pending_void entry
+    const supersededIds = new Set(
+        visits.filter(v => v.original_id).map(v => v.original_id)
+    );
+
     const filtered = visits.filter(v => {
+        if (supersededIds.has(v.id)) return false;
         if (area && v.area !== area) return false;
         if (pos && v.position !== pos) return false;
         if (q && !v.outlet.toLowerCase().includes(q) && !v.person.toLowerCase().includes(q)) return false;
@@ -529,13 +536,14 @@ function renderList() {
         const voidBadge = v.is_voided
             ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Voided</span>`
             : v.pending_void
-                ? `<span class="badge" style="background:#FFF3E0; color:#E07B00;">⏳ Pending Void</span>`
+                ? `<span class="badge" style="background:#FFF3E0; color:#E07B00; border:1px solid #F5C97A;">&#x23F3; Pending Void</span>`
                 : '';
         const cardStyle = v.is_voided
-            ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;`
+            ? `opacity:0.7; border:1px dashed #D48A8A; background:#FAFAFA;`
             : v.pending_void
-                ? `opacity: 0.75; border: 1px dashed #E07B00; background: #FFFBF5; pointer-events: auto;`
+                ? `opacity:0.8; border:1px dashed #E07B00; background:#FFFBF5;`
                 : '';
+        const strikeStyle = (v.is_voided || v.pending_void) ? 'text-decoration:line-through; color:#aaa;' : '';
 
         return `
         <div class="visit-card" style="${cardStyle}" onclick="openDetail('${v.id}')">
@@ -549,7 +557,7 @@ function renderList() {
             <span class="badge badge-pos">${esc(v.position)}</span>
             <span class="vc-person">${esc(v.person)}</span>
           </div>
-          <div class="vc-reason" style="${v.is_voided || v.pending_void ? 'text-decoration: line-through; color:#aaa;' : ''}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
+          <div class="vc-reason" style="${strikeStyle}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
           ${renderThumbStrip(v.photos)}
         </div>
         `;
@@ -587,14 +595,14 @@ function openDetail(id) {
     const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt="" style="cursor: zoom-in;"></div>`).join('')}</div>` : '';
 
     const topVoidAlert = v.is_voided
-        ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>`
+        ? `<div style="background:#FFF5F5; border:1px solid #FBCBCB; padding:12px; border-radius:8px; margin-bottom:16px;"><strong style="color:#D48A8A; font-size:13px;">This record is voided.</strong><div style="font-size:13px; color:#666; margin-top:6px;">Reason: ${esc(v.void_reason)}</div></div>`
         : v.pending_void
-            ? `<div style="background: #FFF8EE; border: 1px solid #F5C97A; padding: 14px 16px; border-radius: 8px; margin-bottom: 16px; display:flex; align-items:flex-start; gap:10px;"><span style="font-size:20px; line-height:1;">⏳</span><div><strong style="color: #E07B00; font-size: 13px; display:block; margin-bottom:4px;">Pending Void — Awaiting Admin Approval</strong><div style="font-size: 13px; color: #666;">Void requested. This record is locked and cannot be edited until an admin reviews it.</div><div style="font-size: 12px; color: #999; margin-top:6px;">Reason: ${esc(v.pending_void_reason)}</div></div></div>`
+            ? `<div style="background:#FFF8EE; border:1px solid #F5C97A; padding:14px 16px; border-radius:8px; margin-bottom:16px; display:flex; align-items:flex-start; gap:10px;"><span style="font-size:20px;">&#x23F3;</span><div><strong style="color:#E07B00; font-size:13px; display:block; margin-bottom:4px;">Pending Void - Awaiting Admin Approval</strong><div style="font-size:13px; color:#666;">This record is locked and cannot be edited until an admin reviews it.</div><div style="font-size:12px; color:#999; margin-top:6px;">Reason: ${esc(v.pending_void_reason)}</div></div></div>`
             : '';
     const bottomVoidAction = (!v.is_voided && !v.pending_void)
-        ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">Void Record</button></div>`
+        ? `<div class="detail-actions" style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border-light); display:flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left:auto;">Void Record</button></div>`
         : v.pending_void
-            ? `<div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); text-align:right;"><span style="font-size:12px; color:#E07B00; background:#FFF3E0; padding:6px 14px; border-radius:20px; border:1px solid #F5C97A;">🔒 Locked — Pending Admin Action</span></div>`
+            ? `<div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border-light); text-align:right;"><span style="font-size:12px; color:#E07B00; background:#FFF3E0; padding:6px 14px; border-radius:20px; border:1px solid #F5C97A;">&#x1F512; Locked - Pending Admin Action</span></div>`
             : '';
 
   document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topVoidAlert}<div class="detail-grid" style="${v.is_voided ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomVoidAction}`;
@@ -628,7 +636,6 @@ async function executeVoid() {
         const original = visits.find(v => v.id === targetId);
         if (!original) { toast('Record not found.', false); return; }
 
-        // INSERT record ใหม่ที่มีสถานะ pending_void = true
         const newId = 'pendingvoid_' + Date.now().toString();
         const pendingPayload = {
             id: newId,
@@ -646,7 +653,8 @@ async function executeVoid() {
             is_voided: false,
             void_reason: '',
             pending_void: true,
-            pending_void_reason: reasonInput
+            pending_void_reason: reasonInput,
+            original_id: targetId
         };
 
         const { error: insError } = await supabaseClient
@@ -655,24 +663,34 @@ async function executeVoid() {
 
         if (insError) throw insError;
 
-        // อัปเดต local array — แทนที่ record เดิมด้วย pending_void version
-        const visitIndex = visits.findIndex(v => v.id === targetId);
-        if (visitIndex !== -1) {
-            visits[visitIndex] = {
-                ...visits[visitIndex],
-                id: newId,
-                pending_void: true,
-                pending_void_reason: reasonInput
-            };
-        }
+        // Push new pending record to local array (original hidden via supersededIds)
+        visits.push({
+            id: newId,
+            outlet: original.outlet,
+            area: original.area,
+            person: original.person,
+            position: original.position,
+            date: original.date,
+            reason: original.reason,
+            result: original.result,
+            photos: original.photos || [],
+            creatorName: original.creatorName || '',
+            creatorEmail: original.creatorEmail || '',
+            creatorPosition: original.creatorPosition || '',
+            is_voided: false,
+            void_reason: '',
+            pending_void: true,
+            pending_void_reason: reasonInput,
+            original_id: targetId
+        });
 
         renderList();
-        toast('✅ Void request submitted. Awaiting admin approval.', true);
+        toast('Void request submitted. Awaiting admin approval.', true);
         closeDetail();
 
     } catch (err) {
         console.error(err);
-        toast('❌ Failed to submit: ' + (err.message || 'Unknown error'), false);
+        toast('Failed to submit: ' + (err.message || 'Unknown error'), false);
     }
 }
 
