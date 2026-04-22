@@ -6,7 +6,7 @@ let currentPage = 0;
 const PAGE_SIZE = 20;
 
 let pendingSaveData = null;
-let voidTargetId = null;
+let deleteTargetId = null;
 
 const SUPABASE_URL = 'https://tphoxfcoynxfnvpvzkfv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_YnMJCwa2jB_uhegOALtL6Q_DMiR--1X';
@@ -139,12 +139,8 @@ async function loadVisitsFromDB(isLoadMore = false) {
                 creatorName: v.creator_name,
                 creatorEmail: v.creator_email,
                 creatorPosition: v.creator_position,
-                is_voided: v.is_voided || false,
-                void_reason: v.void_reason || '',
-                pending_delete: v.pending_delete || false,
-                pending_delete_reason: v.pending_delete_reason || '',
-                original_id: v.original_id || '',
-                created_at: v.created_at || ''
+                is_deleted: v.is_deleted || false,
+                delete_reason: v.delete_reason || ''
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
@@ -460,8 +456,8 @@ async function executeSave() {
             creator_position: userProfile.position,
             lat: location ? location.lat : null,
             lng: location ? location.lng : null,
-            is_voided: false,
-            void_reason: null
+            is_deleted: false,
+            delete_reason: null
         };
 
         // 2. บันทึกลงตาราง
@@ -513,24 +509,11 @@ function renderList() {
     const pos = document.getElementById('fl-pos').value;
     const q = document.getElementById('fl-search').value.toLowerCase();
 
-    // Hide original records superseded by a pending_delete entry
-    const supersededIds = new Set(
-        visits.filter(v => v.original_id).map(v => v.original_id)
-    );
-
     const filtered = visits.filter(v => {
-        if (supersededIds.has(v.id)) return false;
         if (area && v.area !== area) return false;
         if (pos && v.position !== pos) return false;
         if (q && !v.outlet.toLowerCase().includes(q) && !v.person.toLowerCase().includes(q)) return false;
         return true;
-    }).sort((a, b) => {
-        // Pending delete always on top
-        if (a.pending_delete && !b.pending_delete) return -1;
-        if (!a.pending_delete && b.pending_delete) return 1;
-        // Then newest first
-        if (a.created_at && b.created_at) return b.created_at.localeCompare(a.created_at);
-        return b.id.localeCompare(a.id);
     });
 
     const el = document.getElementById('visit-list');
@@ -541,8 +524,8 @@ function renderList() {
     }
 
     el.innerHTML = filtered.map(v => {
-        const voidBadge = v.is_voided ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Voided</span>` : '';
-        const cardStyle = v.is_voided ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;` : '';
+        const statusBadge = v.is_deleted ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Deleted</span>` : '';
+        const cardStyle = v.is_deleted ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;` : '';
 
         return `
         <div class="visit-card" style="${cardStyle}" onclick="openDetail('${v.id}')">
@@ -551,12 +534,12 @@ function renderList() {
             <span class="vc-date">${fmtDate(v.date)}</span>
           </div>
           <div class="vc-meta">
-            ${voidBadge}
+            ${statusBadge}
             <span class="badge badge-area">${v.area}</span>
             <span class="badge badge-pos">${esc(v.position)}</span>
             <span class="vc-person">${esc(v.person)}</span>
           </div>
-          <div class="vc-reason" style="${v.is_voided ? 'text-decoration: line-through;' : ''}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
+          <div class="vc-reason" style="${v.is_deleted ? 'text-decoration: line-through;' : ''}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
           ${renderThumbStrip(v.photos)}
         </div>
         `;
@@ -593,40 +576,40 @@ function openDetail(id) {
 
     const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt="" style="cursor: zoom-in;"></div>`).join('')}</div>` : '';
 
-    const topVoidAlert = v.is_voided ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>` : '';
-    const bottomVoidAction = !v.is_voided ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">Void Record</button></div>` : '';
+    const topDeleteAlert = v.is_deleted ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is flagged for deletion.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.delete_reason)}</div></div>` : '';
+    const bottomDeleteAction = !v.is_deleted ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openDeleteRequest('${v.id}')" style="margin-left: auto;">Delete Request</button></div>` : '';
 
-  document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topVoidAlert}<div class="detail-grid" style="${v.is_voided ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomVoidAction}`;
+  document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topDeleteAlert}<div class="detail-grid" style="${v.is_deleted ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomDeleteAction}`;
   document.getElementById('detail-overlay').classList.add('open');
 }
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Void System ── */
-function openVoidConfirm(id) {
-    voidTargetId = id;
-    document.getElementById('void-reason-input').value = '';
-    document.getElementById('void-confirm-overlay').classList.add('open');
+/* ── 🔴 Delete Request System ── */
+function openDeleteRequest(id) {
+    deleteTargetId = id;
+    document.getElementById('delete-reason-input').value = '';
+    document.getElementById('delete-confirm-overlay').classList.add('open');
 }
 
-function closeVoidConfirm() {
-    voidTargetId = null;
-    document.getElementById('void-confirm-overlay').classList.remove('open');
+function closeDeleteRequest() {
+    deleteTargetId = null;
+    document.getElementById('delete-confirm-overlay').classList.remove('open');
 }
 
-async function executeVoid() {
-    const reasonInput = document.getElementById('void-reason-input').value.trim();
+async function executeDeleteRequest() {
+    const reasonInput = document.getElementById('delete-reason-input').value.trim();
     if (!reasonInput) { toast('Please provide a reason.', false); return; }
-    if (!voidTargetId || !supabaseClient) return;
+    if (!deleteTargetId || !supabaseClient) return;
 
-    closeVoidConfirm();
-    toast('Voiding...', true);
+    closeDeleteRequest();
+    toast('Processing...', true);
 
     try {
         const { data, error } = await supabaseClient
             .from('visits')
-            .update({ is_voided: true, void_reason: reasonInput })
-            .eq('id', voidTargetId)
+            .update({ is_deleted: true, delete_reason: reasonInput })
+            .eq('id', deleteTargetId)
             .select();
 
         if (error) throw error;
@@ -636,20 +619,20 @@ async function executeVoid() {
             return;
         }
 
-        const visitIndex = visits.findIndex(v => v.id === voidTargetId);
+        const visitIndex = visits.findIndex(v => v.id === deleteTargetId);
         if (visitIndex !== -1) {
-            visits[visitIndex].is_voided = true;
-            visits[visitIndex].void_reason = reasonInput;
+            visits[visitIndex].is_deleted = true;
+            visits[visitIndex].delete_reason = reasonInput;
         }
         
         renderList();
 
-        toast('Voided successfully.');
+        toast('Delete request submitted.');
         closeDetail();
         
     } catch (err) {
         console.error(err);
-        toast('Failed to void record.', false);
+        toast('Failed to submit request.', false);
     }
 }
 
