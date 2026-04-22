@@ -168,8 +168,8 @@ function switchTab(tab) {
     document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
 
     if (tab === 'list') {
-        renderList(); // เรียกใช้งานจาก array ในเครื่องก่อนเลย
-        if (supabaseClient) loadVisitsFromDB(); // ค่อยดึงใหม่เงียบๆ
+        renderList();
+        if (supabaseClient) loadVisitsFromDB();
     }
 }
 
@@ -184,7 +184,7 @@ function getPosition() {
     return s === '__other__' ? document.getElementById('f-pos-other').value.trim() : s;
 }
 
-/* ── 📷 FULLSCREEN MODAL CAMERA LOGIC ── */
+/* ── 📷 FULLSCREEN MODAL CAMERA LOGIC (Updated Fallback) ── */
 let cameraStream = null;
 
 async function startCamera() {
@@ -194,17 +194,35 @@ async function startCamera() {
     const modal = document.getElementById('camera-modal');
 
     try {
+        // ครั้งที่ 1: พยายามขอกล้องหลังก่อน (เหมาะสำหรับมือถือ)
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: false
         });
-        video.srcObject = cameraStream;
-        modal.classList.add('open');
-        updateModalCounter();
-    } catch (err) {
-        console.error("Camera Error:", err);
-        toast('Cannot access camera. Check browser permissions.', false);
+    } catch (err1) {
+        console.warn("Attempt 1 failed. Trying default camera...", err1);
+        try {
+            // ครั้งที่ 2: ถ้าหากล้องหลังไม่เจอ หรือมีปัญหา ให้ดึงกล้องไหนก็ได้ที่ว่างอยู่มาใช้ (เหมาะสำหรับคอมพิวเตอร์)
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+            });
+        } catch (err2) {
+            console.error("Camera Error:", err2);
+            // แจ้งเตือนแบบเจาะจงสาเหตุ
+            if (err2.name === 'NotReadableError' || err2.name === 'TrackStartError') {
+                toast('❌ Camera is currently used by another app (e.g., Zoom, Teams) or blocked.', false);
+            } else {
+                toast('❌ Cannot access camera. ' + err2.message, false);
+            }
+            return; // หยุดการทำงาน
+        }
     }
+
+    // ถ้าดึงกล้องมาได้แล้ว ให้เอาภาพขึ้นจอ
+    video.srcObject = cameraStream;
+    modal.classList.add('open');
+    updateModalCounter();
 }
 
 function stopCamera() {
@@ -522,7 +540,7 @@ function openDetail(id) {
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Void System (อัปเดตหน้าจอทันที - Optimistic UI Update) ── */
+/* ── 🔴 Void System ── */
 function openVoidConfirm(id) {
     voidTargetId = id;
     document.getElementById('void-reason-input').value = '';
@@ -556,14 +574,12 @@ async function executeVoid() {
             return;
         }
 
-        // 📍 อัปเดตข้อมูลบนหน้าจอคอมพิวเตอร์และมือถือทันที (ไม่ต้องรอโหลดใหม่)
         const visitIndex = visits.findIndex(v => v.id === voidTargetId);
         if (visitIndex !== -1) {
             visits[visitIndex].is_voided = true;
             visits[visitIndex].void_reason = reasonInput;
         }
         
-        // รีเฟรชหน้าจอ
         renderList();
 
         toast('Voided successfully.');
