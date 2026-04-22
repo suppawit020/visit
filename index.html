@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visit / DC Check</title>
-    
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
-    
+
     <link rel="stylesheet" href="style.css?v=9">
 </head>
+
 <body>
 
     <div class="app">
@@ -98,7 +100,7 @@
                         <label>Reason for Visit <span class="req">*</span></label>
                         <textarea id="f-reason" rows="2" placeholder="Purpose of this visit..."></textarea>
                     </div>
-                    
+
                     <div class="form-group full">
                         <label>Result of Visit <span class="req" id="result-req-star">*</span></label>
                         <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
@@ -124,7 +126,7 @@
                     <span>Live Evidence</span>
                     <span id="photo-counter" style="color: var(--primary); font-weight: 600;">0 / 10</span>
                 </div>
-                
+
                 <div class="easy-camera-container">
                     <button class="btn-open-camera" id="btn-start-cam" onclick="startCamera()" type="button">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
@@ -134,7 +136,7 @@
                         OPEN CAMERA
                     </button>
                     <p style="font-size: 12px; color: #888; margin-top: 12px;">Capture live photos directly from your device</p>
-                    
+
                     <div class="captured-section" id="captured-section" style="display: none;">
                         <div class="captured-title">Captured Photos (Click to view)</div>
                         <div class="photo-previews" id="previews"></div>
@@ -200,14 +202,14 @@
         </div>
     </div>
 
-    <div class="confirm-overlay" id="void-confirm-overlay" onclick="if(event.target===this)closeVoidConfirm()">
+    <div class="confirm-overlay" id="delete-confirm-overlay" onclick="if(event.target===this)closeDeleteRequestConfirm()">
         <div class="confirm-box">
-            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Void Record</h3>
-            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for voiding this record:</p>
-            <textarea id="void-reason-input" rows="3" placeholder="e.g., Duplicated entry, wrong outlet..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
+            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Request Delete</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for requesting deletion:</p>
+            <textarea id="delete-reason-input" rows="3" placeholder="e.g., Duplicated entry, wrong outlet..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
             <div class="confirm-actions">
-                <button class="btn-secondary" onclick="closeVoidConfirm()">Cancel</button>
-                <button class="btn-primary btn-danger" onclick="executeVoid()">Confirm Void</button>
+                <button class="btn-secondary" onclick="closeDeleteRequestConfirm()">Cancel</button>
+                <button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete Request</button>
             </div>
         </div>
     </div>
@@ -221,4 +223,5 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js?v=9"></script>
 </body>
+
 </html>
