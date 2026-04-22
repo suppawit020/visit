@@ -609,7 +609,7 @@ select {
     inset: 0;
     background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(8px);
-    z-index: 200;
+    z-index: 500;
     align-items: center;
     justify-content: center;
     cursor: zoom-out;
@@ -935,22 +935,4 @@ select {
     border-radius: 6px;
     border: 1px solid #EBEBEB;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-/* ── Pending Void State ── */
-.badge-pending-void {
-    background: #FFF3E0;
-    color: #E07B00;
-    border: 1px solid #F5C97A;
-    animation: pulse-orange 2s infinite;
-}
-
-@keyframes pulse-orange {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.65; }
-}
-
-.visit-card.pending-void-card {
-    border: 1px dashed #E07B00 !important;
-    background: #FFFBF5 !important;
 }
