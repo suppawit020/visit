@@ -202,13 +202,13 @@
         </div>
     </div>
 
-    <div class="confirm-overlay" id="delete-confirm-overlay" onclick="if(event.target===this)closeDeleteRequestConfirm()">
+    <div class="confirm-overlay" id="delete-confirm-overlay" onclick="if(event.target===this)closeDeleteRequest()">
         <div class="confirm-box">
-            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Request Delete</h3>
-            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for requesting deletion:</p>
+            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Delete Request</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for delete request:</p>
             <textarea id="delete-reason-input" rows="3" placeholder="e.g., Duplicated entry, wrong outlet..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
             <div class="confirm-actions">
-                <button class="btn-secondary" onclick="closeDeleteRequestConfirm()">Cancel</button>
+                <button class="btn-secondary" onclick="closeDeleteRequest()">Cancel</button>
                 <button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete Request</button>
             </div>
         </div>
