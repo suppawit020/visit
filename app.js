@@ -6,7 +6,7 @@ let currentPage = 0;
 const PAGE_SIZE = 20;
 
 let pendingSaveData = null;
-let deleteTargetId = null;
+let voidTargetId = null;
 
 const SUPABASE_URL = 'https://tphoxfcoynxfnvpvzkfv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_YnMJCwa2jB_uhegOALtL6Q_DMiR--1X';
@@ -139,11 +139,8 @@ async function loadVisitsFromDB(isLoadMore = false) {
                 creatorName: v.creator_name,
                 creatorEmail: v.creator_email,
                 creatorPosition: v.creator_position,
-                is_deleted: v.is_deleted || false,
-                delete_reason: v.delete_reason || '',
-                pending_delete: v.pending_delete || false,
-                pending_delete_reason: v.pending_delete_reason || '',
-                original_id: v.original_id || ''
+                is_voided: v.is_voided || false,
+                void_reason: v.void_reason || ''
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
@@ -428,7 +425,7 @@ async function executeSave() {
     if (!pendingSaveData) return;
     document.getElementById('save-confirm-overlay').classList.remove('open');
     if (!supabaseClient) {
-        alert('❌ ฐานข้อมูลยังไม่ได้เชื่อมต่อ (เช็ค URL และ KEY ให้ถูกต้อง)');
+        toast('❌ ไม่ได้เชื่อมต่อฐานข้อมูล', false); return;
         return;
     }
 
@@ -459,8 +456,8 @@ async function executeSave() {
             creator_position: userProfile.position,
             lat: location ? location.lat : null,
             lng: location ? location.lng : null,
-            is_deleted: false,
-            delete_reason: null
+            is_voided: false,
+            void_reason: null
         };
 
         // 2. บันทึกลงตาราง
@@ -468,11 +465,11 @@ async function executeSave() {
 
         // ถ้าฝั่งฐานข้อมูลมีปัญหา (เช่น ติด RLS หรือตารางไม่มี) ให้เด้ง Alert
         if (error) {
-            alert('❌ Database Error!\n' + error.message);
+            toast('❌ Database Error: ' + error.message, false);
             throw error;
         }
 
-        alert('✅ บันทึกข้อมูลสำเร็จ!');
+        toast('✅ บันทึกข้อมูลสำเร็จ!');
         clearForm();
         loadVisitsFromDB();
         switchTab('list');
@@ -480,7 +477,7 @@ async function executeSave() {
     } catch (error) {
         console.error(error);
         // ถ้าพังกลางทาง ให้เด้ง Alert ฟ้องสาเหตุเลย จะได้แก้ถูกจุด
-        alert('💥 เซฟไม่ผ่าน! สาเหตุ: ' + (error.message || 'เช็ครายละเอียดใน Console'));
+        toast('❌ เซฟไม่สำเร็จ: ' + (error.message || 'เช็ค Console'), false);
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
@@ -512,12 +509,7 @@ function renderList() {
     const pos = document.getElementById('fl-pos').value;
     const q = document.getElementById('fl-search').value.toLowerCase();
 
-    const supersededIds = new Set(
-        visits.filter(v => v.original_id).map(v => v.original_id)
-    );
-
     const filtered = visits.filter(v => {
-        if (supersededIds.has(v.id)) return false;
         if (area && v.area !== area) return false;
         if (pos && v.position !== pos) return false;
         if (q && !v.outlet.toLowerCase().includes(q) && !v.person.toLowerCase().includes(q)) return false;
@@ -532,17 +524,8 @@ function renderList() {
     }
 
     el.innerHTML = filtered.map(v => {
-        const statusBadge = v.is_deleted
-            ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Deleted</span>`
-            : v.pending_delete
-                ? `<span class="badge" style="background:#FFF3E0; color:#E07B00; border:1px solid #F5C97A;">&#x23F3; Pending Delete</span>`
-                : '';
-        const cardStyle = v.is_deleted
-            ? `opacity:0.7; border:1px dashed #D48A8A; background:#FAFAFA;`
-            : v.pending_delete
-                ? `opacity:0.8; border:1px dashed #E07B00; background:#FFFBF5;`
-                : '';
-        const strikeStyle = (v.is_deleted || v.pending_delete) ? 'text-decoration:line-through; color:#aaa;' : '';
+        const voidBadge = v.is_voided ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Voided</span>` : '';
+        const cardStyle = v.is_voided ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;` : '';
 
         return `
         <div class="visit-card" style="${cardStyle}" onclick="openDetail('${v.id}')">
@@ -551,12 +534,12 @@ function renderList() {
             <span class="vc-date">${fmtDate(v.date)}</span>
           </div>
           <div class="vc-meta">
-            ${statusBadge}
+            ${voidBadge}
             <span class="badge badge-area">${v.area}</span>
             <span class="badge badge-pos">${esc(v.position)}</span>
             <span class="vc-person">${esc(v.person)}</span>
           </div>
-          <div class="vc-reason" style="${strikeStyle}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
+          <div class="vc-reason" style="${v.is_voided ? 'text-decoration: line-through;' : ''}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
           ${renderThumbStrip(v.photos)}
         </div>
         `;
@@ -593,102 +576,63 @@ function openDetail(id) {
 
     const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt="" style="cursor: zoom-in;"></div>`).join('')}</div>` : '';
 
-    const topDeleteAlert = v.is_deleted
-        ? `<div style="background:#FFF5F5; border:1px solid #FBCBCB; padding:12px; border-radius:8px; margin-bottom:16px;"><strong style="color:#D48A8A; font-size:13px;">This record has been deleted.</strong><div style="font-size:13px; color:#666; margin-top:6px;">Reason: ${esc(v.delete_reason)}</div></div>`
-        : v.pending_delete
-            ? `<div style="background:#FFF8EE; border:1px solid #F5C97A; padding:14px 16px; border-radius:8px; margin-bottom:16px; display:flex; align-items:flex-start; gap:10px;"><span style="font-size:20px;">&#x23F3;</span><div><strong style="color:#E07B00; font-size:13px; display:block; margin-bottom:4px;">Pending Delete - Awaiting Admin Approval</strong><div style="font-size:13px; color:#666;">This record is locked and cannot be edited until an admin reviews it.</div><div style="font-size:12px; color:#999; margin-top:6px;">Reason: ${esc(v.pending_delete_reason)}</div></div></div>`
-            : '';
-    const bottomDeleteAction = (!v.is_deleted && !v.pending_delete)
-        ? `<div class="detail-actions" style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border-light); display:flex;"><button class="btn-secondary btn-danger" onclick="openDeleteRequestConfirm('${v.id}')" style="margin-left:auto;">Request Delete</button></div>`
-        : v.pending_delete
-            ? `<div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border-light); text-align:right;"><span style="font-size:12px; color:#E07B00; background:#FFF3E0; padding:6px 14px; border-radius:20px; border:1px solid #F5C97A;">&#x1F512; Locked - Pending Admin Approval</span></div>`
-            : '';
+    const topVoidAlert = v.is_voided ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>` : '';
+    const bottomVoidAction = !v.is_voided ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">Void Record</button></div>` : '';
 
-  document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topDeleteAlert}<div class="detail-grid" style="${(v.is_deleted || v.pending_delete) ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomDeleteAction}`;
+  document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topVoidAlert}<div class="detail-grid" style="${v.is_voided ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomVoidAction}`;
   document.getElementById('detail-overlay').classList.add('open');
 }
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Delete System ── */
-function openDeleteRequestConfirm(id) {
-    deleteTargetId = id;
-    document.getElementById('delete-reason-input').value = '';
-    document.getElementById('delete-confirm-overlay').classList.add('open');
+/* ── 🔴 Void System ── */
+function openVoidConfirm(id) {
+    voidTargetId = id;
+    document.getElementById('void-reason-input').value = '';
+    document.getElementById('void-confirm-overlay').classList.add('open');
 }
 
-function closeDeleteRequestConfirm() {
-    deleteTargetId = null;
-    document.getElementById('delete-confirm-overlay').classList.remove('open');
+function closeVoidConfirm() {
+    voidTargetId = null;
+    document.getElementById('void-confirm-overlay').classList.remove('open');
 }
 
-async function executeDeleteRequest() {
-    const reasonInput = document.getElementById('delete-reason-input').value.trim();
+async function executeVoid() {
+    const reasonInput = document.getElementById('void-reason-input').value.trim();
     if (!reasonInput) { toast('Please provide a reason.', false); return; }
-    if (!deleteTargetId || !supabaseClient) return;
+    if (!voidTargetId || !supabaseClient) return;
 
-    const targetId = deleteTargetId;
-    closeDeleteRequestConfirm();
-    toast('Submitting delete request...', true);
+    closeVoidConfirm();
+    toast('Voiding...', true);
 
     try {
-        const original = visits.find(v => v.id === targetId);
-        if (!original) { toast('Record not found.', false); return; }
-
-        const newId = 'pendingdelete_' + Date.now().toString();
-        const pendingPayload = {
-            id: newId,
-            outlet: original.outlet,
-            area: original.area,
-            person: original.person,
-            position: original.position,
-            date: original.date,
-            reason: original.reason,
-            result: original.result,
-            photos: original.photos || [],
-            creator_name: original.creatorName || '',
-            creator_email: original.creatorEmail || '',
-            creator_position: original.creatorPosition || '',
-            is_deleted: false,
-            delete_reason: '',
-            pending_delete: true,
-            pending_delete_reason: reasonInput,
-            original_id: targetId
-        };
-
-        const { error: insError } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from('visits')
-            .insert([pendingPayload]);
+            .update({ is_voided: true, void_reason: reasonInput })
+            .eq('id', voidTargetId)
+            .select();
 
-        if (insError) throw insError;
+        if (error) throw error;
 
-        visits.push({
-            id: newId,
-            outlet: original.outlet,
-            area: original.area,
-            person: original.person,
-            position: original.position,
-            date: original.date,
-            reason: original.reason,
-            result: original.result,
-            photos: original.photos || [],
-            creatorName: original.creatorName || '',
-            creatorEmail: original.creatorEmail || '',
-            creatorPosition: original.creatorPosition || '',
-            is_deleted: false,
-            delete_reason: '',
-            pending_delete: true,
-            pending_delete_reason: reasonInput,
-            original_id: targetId
-        });
+        if (!data || data.length === 0) {
+            toast('❌ Permission Denied: Check Supabase RLS policies.', false);
+            return;
+        }
 
+        const visitIndex = visits.findIndex(v => v.id === voidTargetId);
+        if (visitIndex !== -1) {
+            visits[visitIndex].is_voided = true;
+            visits[visitIndex].void_reason = reasonInput;
+        }
+        
         renderList();
-        toast('Delete request submitted. Awaiting admin approval.', true);
-        closeDetail();
 
+        toast('Voided successfully.');
+        closeDetail();
+        
     } catch (err) {
         console.error(err);
-        toast('Failed to submit delete request: ' + (err.message || 'Unknown error'), false);
+        toast('Failed to void record.', false);
     }
 }
 
