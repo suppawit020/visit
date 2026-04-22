@@ -1,18 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visit / DC Check</title>
-
+    
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
-
-    <link rel="stylesheet" href="style.css?v=3">
+    
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
-
 <body>
 
     <div class="app">
@@ -112,10 +110,15 @@
                     Live Evidence
                     <span id="photo-counter" style="font-size:11px;color:#888;font-weight:400;text-transform:none;">0 / 10 Photos</span>
                 </div>
-
+                
                 <div class="easy-camera-container">
                     <div id="camera-idle" onclick="startCamera()">
-                        <div class="ec-icon">📸</div>
+                        <div class="ec-icon">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#7C9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                <circle cx="12" cy="13" r="4"></circle>
+                            </svg>
+                        </div>
                         <h3>Tap to Open Camera</h3>
                         <p>Live photos are required</p>
                     </div>
@@ -123,13 +126,17 @@
                     <div id="camera-active" style="display: none;">
                         <video id="camera-view" autoplay playsinline></video>
                         <div class="ec-controls">
-                            <button class="btn-capture-huge" onclick="capturePhoto()">📸 CAPTURE</button>
-                            <button class="btn-close-cam" onclick="stopCamera()">✕ Close</button>
+                            <button class="btn-capture-huge" onclick="capturePhoto()">CAPTURE PHOTO</button>
+                            <button class="btn-close-cam" onclick="stopCamera()">Close Camera</button>
                         </div>
                     </div>
 
                     <canvas id="camera-canvas" style="display: none;"></canvas>
-                    <div class="photo-previews" id="previews" style="margin-top: 16px;"></div>
+                    
+                    <div class="captured-section" id="captured-section" style="display: none;">
+                        <div class="captured-title">Captured Photos</div>
+                        <div class="photo-previews" id="previews"></div>
+                    </div>
                 </div>
             </div>
 
@@ -179,7 +186,6 @@
 
     <div class="confirm-overlay" id="void-confirm-overlay" onclick="if(event.target===this)closeVoidConfirm()">
         <div class="confirm-box">
-            <div class="confirm-icon" style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
             <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Void Record</h3>
             <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for voiding this record:</p>
             <textarea id="void-reason-input" rows="3" placeholder="e.g., Duplicated entry, wrong outlet..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
@@ -197,8 +203,7 @@
     <div class="toast" id="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <script src="app.js?v=3"></script>
+    
+    <script src="app.js?v=4"></script>
 </body>
-
 </html>
