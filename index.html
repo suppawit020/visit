@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visit/DC</title>
+    <title>Visit / DC Check</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -92,7 +92,7 @@
                     </div>
                     <div class="form-group">
                         <label>Visit Date <span class="req">*</span></label>
-                        <input type="date" id="f-date">
+                        <input type="date" id="f-date" lang="en-US">
                     </div>
                     <div class="form-group full">
                         <label>Reason for Visit <span class="req">*</span></label>
@@ -111,9 +111,9 @@
                             <label class="cb-label"><input type="checkbox" class="f-followup" value="Call Back Later"> Call Back Later</label>
                             <label class="cb-label"><input type="checkbox" id="cb-next-visit" class="f-followup" value="Schedule Next Visit"> Schedule Next Visit</label>
                         </div>
-                        <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5;">
-                            <label style="font-size: 12px; color: var(--primary);">Select Date for Next Visit:</label>
-                            <input type="date" id="f-next-date" style="margin-top: 6px; border-color: #B5CCBD;">
+                        <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5; width: 100%; box-sizing: border-box; overflow: hidden;">
+                            <label style="font-size: 12px; color: var(--primary); display: block; margin-bottom: 6px;">Select Date for Next Visit:</label>
+                            <input type="date" id="f-next-date" lang="en-US" style="border-color: #B5CCBD; width: 100%; box-sizing: border-box; display: block; margin: 0;">
                         </div>
                     </div>
                 </div>
@@ -219,6 +219,6 @@
     <div class="toast" id="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=9"></script>
 </body>
 </html>
