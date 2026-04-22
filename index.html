@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -98,8 +98,9 @@
                         <label>Reason for Visit <span class="req">*</span></label>
                         <textarea id="f-reason" rows="2" placeholder="Purpose of this visit..."></textarea>
                     </div>
+                    
                     <div class="form-group full">
-                        <label>Result of Visit <span class="req">*</span></label>
+                        <label>Result of Visit <span class="req" id="result-req-star">*</span></label>
                         <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
                     </div>
 
@@ -218,6 +219,6 @@
     <div class="toast" id="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>
