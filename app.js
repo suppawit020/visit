@@ -9,8 +9,7 @@ let pendingSaveData = null;
 let voidTargetId = null;
 
 const SUPABASE_URL = 'https://tphoxfcoynxfnvpvzkfv.supabase.co';
-// ⚠️ เปลี่ยน KEY ด้านล่างนี้ ให้เป็นตัวที่ขึ้นต้นด้วย eyJ... (anon/public key จากเว็บ Supabase)
-const SUPABASE_KEY = 'sb_publishable_YnMJCwa2jB_uhegOALtL6Q_DMiR--1X'; 
+const SUPABASE_KEY = 'sb_publishable_YnMJCwa2jB_uhegOALtL6Q_DMiR--1X';
 let supabaseClient = null;
 
 try {
@@ -194,7 +193,7 @@ function getPosition() {
     return s === '__other__' ? document.getElementById('f-pos-other').value.trim() : s;
 }
 
-/* ── 📷 FULLSCREEN MODAL CAMERA LOGIC ── */
+/* ── 📷 FULLSCREEN MODAL CAMERA LOGIC (Updated Fallback) ── */
 let cameraStream = null;
 
 async function startCamera() {
@@ -204,6 +203,7 @@ async function startCamera() {
     const modal = document.getElementById('camera-modal');
 
     try {
+        // ครั้งที่ 1: พยายามขอกล้องหลังก่อน (เหมาะสำหรับมือถือ)
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: false
@@ -211,21 +211,24 @@ async function startCamera() {
     } catch (err1) {
         console.warn("Attempt 1 failed. Trying default camera...", err1);
         try {
+            // ครั้งที่ 2: ถ้าหากล้องหลังไม่เจอ หรือมีปัญหา ให้ดึงกล้องไหนก็ได้ที่ว่างอยู่มาใช้ (เหมาะสำหรับคอมพิวเตอร์)
             cameraStream = await navigator.mediaDevices.getUserMedia({
                 video: true,
                 audio: false
             });
         } catch (err2) {
             console.error("Camera Error:", err2);
+            // แจ้งเตือนแบบเจาะจงสาเหตุ
             if (err2.name === 'NotReadableError' || err2.name === 'TrackStartError') {
                 toast('❌ Camera is currently used by another app (e.g., Zoom, Teams) or blocked.', false);
             } else {
                 toast('❌ Cannot access camera. ' + err2.message, false);
             }
-            return; 
+            return; // หยุดการทำงาน
         }
     }
 
+    // ถ้าดึงกล้องมาได้แล้ว ให้เอาภาพขึ้นจอ
     video.srcObject = cameraStream;
     modal.classList.add('open');
     updateModalCounter();
@@ -413,35 +416,29 @@ function triggerSaveConfirm() {
     document.getElementById('save-confirm-overlay').classList.add('open');
 }
 
-// ⚠️ แก้ไขบั๊กตัวการสำคัญตรงนี้: เอา pendingSaveData = null ออกไปแล้ว
 function closeSaveConfirm() {
     document.getElementById('save-confirm-overlay').classList.remove('open');
+    pendingSaveData = null;
 }
 
-// ⚠️ เพิ่มระบบแจ้งเตือนแบบชัดเจน ถ้าระบบเซฟไม่ได้จะเด้งบอกทันที
 async function executeSave() {
-    closeSaveConfirm();
-    
-    if (!pendingSaveData) {
-        alert('❌ เกิดข้อผิดพลาด: ไม่พบข้อมูลที่ต้องการเซฟ กรุณากรอกใหม่และกดเซฟอีกครั้ง');
+    if (!pendingSaveData) return;
+    document.getElementById('save-confirm-overlay').classList.remove('open');
+    if (!supabaseClient) {
+        alert('❌ ฐานข้อมูลยังไม่ได้เชื่อมต่อ (เช็ค URL และ KEY ให้ถูกต้อง)');
         return;
-    }
-    
-    if (!supabaseClient) { 
-        alert('❌ ฐานข้อมูลยังไม่ได้เชื่อมต่อ (เช็ค URL และ KEY ในไฟล์ app.js ให้ถูกต้อง)'); 
-        return; 
     }
 
     const saveBtn = document.getElementById('btn-save');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
-    toast('⏳ Uploading data...', true);
+    toast('Uploading data...', true);
 
     try {
         const id = Date.now().toString();
         const location = await getCurrentLocation();
-        
-        // 1. อัปโหลดรูปขึ้น Storage
+
+        // 1. อัปโหลดรูป
         const newUploadedUrls = await uploadPhotosToStorage(id);
 
         const payload = {
@@ -463,26 +460,28 @@ async function executeSave() {
             void_reason: null
         };
 
-        // 2. บันทึกข้อมูลลงตาราง visits
+        // 2. บันทึกลงตาราง
         const { error } = await supabaseClient.from('visits').insert([payload]);
-        
+
+        // ถ้าฝั่งฐานข้อมูลมีปัญหา (เช่น ติด RLS หรือตารางไม่มี) ให้เด้ง Alert
         if (error) {
             alert('❌ Database Error!\n' + error.message);
             throw error;
         }
 
-        alert('✅ บันทึกข้อมูล Visit สำเร็จเรียบร้อย!');
+        alert('✅ บันทึกข้อมูลสำเร็จ!');
         clearForm();
         loadVisitsFromDB();
         switchTab('list');
 
     } catch (error) {
         console.error(error);
-        alert('💥 เซฟข้อมูลไม่สำเร็จ! สาเหตุ: ' + (error.message || 'เช็ครายละเอียดเพิ่มเติมใน Console'));
+        // ถ้าพังกลางทาง ให้เด้ง Alert ฟ้องสาเหตุเลย จะได้แก้ถูกจุด
+        alert('💥 เซฟไม่ผ่าน! สาเหตุ: ' + (error.message || 'เช็ครายละเอียดใน Console'));
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
-        pendingSaveData = null; // คืนค่าเป็น null หลังเซฟเสร็จ
+        pendingSaveData = null;
     }
 }
 
