@@ -122,23 +122,25 @@
                     <span id="photo-counter" style="font-size:11px;color:#888;font-weight:400;text-transform:none;letter-spacing:0">0 / 10</span>
                 </div>
 
-                <div class="photo-area" id="camera-container" style="padding: 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 15px;">
+                <div class="photo-area" id="camera-container" style="padding: 2rem 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 15px; background: #F8F9FA; border: 2px dashed #CED4DA; border-radius: 12px;">
+                    
+                    <div id="upload-prompt" style="text-align: center; margin-bottom: 10px;">
+                        <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
+                        <p style="font-size: 15px; color: #495057;"><strong>Take Live Photos</strong></p>
+                        <p style="font-size: 13px; color: #6C757D;">Capture up to 10 photos as evidence</p>
+                    </div>
 
-                    <video id="camera-view" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px; background: #000; display: none;"></video>
+                    <video id="camera-view" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px; background: #000; display: none; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></video>
                     <canvas id="camera-canvas" style="display: none;"></canvas>
 
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-                        <button class="btn-secondary" id="btn-start-cam" onclick="startCamera()" type="button">📷 Open Camera</button>
-                        <button class="btn-primary" id="btn-capture" onclick="capturePhoto()" type="button" style="display: none;">📸 Take Photo</button>
-                        <button class="btn-secondary btn-danger" id="btn-stop-cam" onclick="stopCamera()" type="button" style="display: none;">✕ Close Camera</button>
+                    <button class="btn-primary" id="btn-start-cam" onclick="startCamera()" type="button" style="width: 100%; max-width: 250px; padding: 14px; font-size: 15px;">📷 Open Camera</button>
+                    
+                    <div id="camera-action-btns" style="display: none; width: 100%; max-width: 400px; gap: 10px;">
+                        <button class="btn-primary" id="btn-capture" onclick="capturePhoto()" type="button" style="flex: 1; padding: 14px; background: #4a5c50;">📸 Capture</button>
+                        <button class="btn-secondary btn-danger" id="btn-stop-cam" onclick="stopCamera()" type="button" style="flex: 1; padding: 14px;">✕ Close</button>
                     </div>
 
-                    <div id="upload-prompt" style="text-align: center;">
-                        <p><strong>Camera Only</strong></p>
-                        <p>You must take live photos (Max 10)</p>
-                    </div>
-
-                    <div class="photo-previews" id="previews" style="width: 100%;"></div>
+                    <div class="photo-previews" id="previews" style="width: 100%; margin-top: 15px;"></div>
                 </div>
             </div>
 
@@ -191,13 +193,12 @@
     </div>
 
     <div class="confirm-overlay" id="save-confirm-overlay" onclick="if(event.target===this)closeSaveConfirm()">
-        <div class="confirm-box">
-            <div class="confirm-icon" style="font-size: 32px; margin-bottom: 12px;">📋</div>
-            <h3 style="margin-bottom: 12px; font-size: 18px;">ยืนยันการบันทึกข้อมูล</h3>
-            <div id="save-confirm-text" style="text-align: left; background: #F9F9F9; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 24px; color: #555; white-space: pre-wrap; border: 1px solid #EBEBEB; line-height: 1.6;"></div>
+        <div class="confirm-box" style="max-width: 480px; padding: 1.5rem;">
+            <h3 style="margin-bottom: 16px; font-size: 18px; text-align: center;">Review Visit Details</h3>
+            <div id="save-confirm-text" style="margin-bottom: 24px;"></div>
             <div class="confirm-actions">
-                <button class="btn-secondary" onclick="closeSaveConfirm()">กลับไปแก้ไข</button>
-                <button class="btn-primary" onclick="executeSave()">บันทึก (Save)</button>
+                <button class="btn-secondary" onclick="closeSaveConfirm()">Edit</button>
+                <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
             </div>
         </div>
     </div>
@@ -205,12 +206,12 @@
     <div class="confirm-overlay" id="void-confirm-overlay" onclick="if(event.target===this)closeVoidConfirm()">
         <div class="confirm-box">
             <div class="confirm-icon" style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
-            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">ยกเลิกรายการ (Void)</h3>
-            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">โปรดระบุเหตุผลในการยกเลิกรายการนี้:</p>
-            <textarea id="void-reason-input" rows="3" placeholder="เช่น กรอกสาขาผิด, บันทึกซ้ำ..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
+            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Void Record</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Please provide a reason for voiding this record:</p>
+            <textarea id="void-reason-input" rows="3" placeholder="e.g., Wrong outlet, duplicate entry..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
             <div class="confirm-actions">
-                <button class="btn-secondary" onclick="closeVoidConfirm()">ปิด</button>
-                <button class="btn-primary btn-danger" onclick="executeVoid()">ยืนยันการยกเลิก</button>
+                <button class="btn-secondary" onclick="closeVoidConfirm()">Cancel</button>
+                <button class="btn-primary btn-danger" onclick="executeVoid()">Confirm Void</button>
             </div>
         </div>
     </div>
