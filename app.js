@@ -585,7 +585,7 @@ function openDetail(id) {
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Void System ── */
+/* ── 🔴 Void System (DELETE + RE-INSERT) ── */
 function openVoidConfirm(id) {
     voidTargetId = id;
     document.getElementById('void-reason-input').value = '';
@@ -602,37 +602,63 @@ async function executeVoid() {
     if (!reasonInput) { toast('Please provide a reason.', false); return; }
     if (!voidTargetId || !supabaseClient) return;
 
+    // snapshot ข้อมูลเดิมก่อนปิด overlay (ป้องกัน voidTargetId ถูก null)
+    const targetId = voidTargetId;
     closeVoidConfirm();
     toast('Voiding...', true);
 
     try {
-        const { data, error } = await supabaseClient
+        // หา record เดิมใน local array
+        const original = visits.find(v => v.id === targetId);
+        if (!original) { toast('Record not found.', false); return; }
+
+        // สร้าง payload ใหม่ที่มี is_voided = true
+        const voidedPayload = {
+            id: original.id,
+            outlet: original.outlet,
+            area: original.area,
+            person: original.person,
+            position: original.position,
+            date: original.date,
+            reason: original.reason,
+            result: original.result,
+            photos: original.photos || [],
+            creator_name: original.creatorName || '',
+            creator_email: original.creatorEmail || '',
+            creator_position: original.creatorPosition || '',
+            is_voided: true,
+            void_reason: reasonInput
+        };
+
+        // ลบ record เดิม
+        const { error: delError } = await supabaseClient
             .from('visits')
-            .update({ is_voided: true, void_reason: reasonInput })
-            .eq('id', voidTargetId)
-            .select();
+            .delete()
+            .eq('id', targetId);
 
-        if (error) throw error;
+        if (delError) throw delError;
 
-        if (!data || data.length === 0) {
-            toast('❌ Permission Denied: Check Supabase RLS policies.', false);
-            return;
-        }
+        // INSERT ใหม่พร้อม voided flag
+        const { error: insError } = await supabaseClient
+            .from('visits')
+            .insert([voidedPayload]);
 
-        const visitIndex = visits.findIndex(v => v.id === voidTargetId);
+        if (insError) throw insError;
+
+        // อัปเดต local array
+        const visitIndex = visits.findIndex(v => v.id === targetId);
         if (visitIndex !== -1) {
             visits[visitIndex].is_voided = true;
             visits[visitIndex].void_reason = reasonInput;
         }
-        
-        renderList();
 
+        renderList();
         toast('Voided successfully.');
         closeDetail();
-        
+
     } catch (err) {
         console.error(err);
-        toast('Failed to void record.', false);
+        toast('❌ Failed to void: ' + (err.message || 'Unknown error'), false);
     }
 }
 
