@@ -140,7 +140,11 @@ async function loadVisitsFromDB(isLoadMore = false) {
                 creatorEmail: v.creator_email,
                 creatorPosition: v.creator_position,
                 is_voided: v.is_voided || false,
-                void_reason: v.void_reason || ''
+                void_reason: v.void_reason || '',
+                pending_delete: v.pending_delete || false,
+                pending_delete_reason: v.pending_delete_reason || '',
+                original_id: v.original_id || '',
+                created_at: v.created_at || ''
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
@@ -425,7 +429,7 @@ async function executeSave() {
     if (!pendingSaveData) return;
     document.getElementById('save-confirm-overlay').classList.remove('open');
     if (!supabaseClient) {
-        toast('❌ ไม่ได้เชื่อมต่อฐานข้อมูล', false); return;
+        alert('❌ ฐานข้อมูลยังไม่ได้เชื่อมต่อ (เช็ค URL และ KEY ให้ถูกต้อง)');
         return;
     }
 
@@ -465,11 +469,11 @@ async function executeSave() {
 
         // ถ้าฝั่งฐานข้อมูลมีปัญหา (เช่น ติด RLS หรือตารางไม่มี) ให้เด้ง Alert
         if (error) {
-            toast('❌ Database Error: ' + error.message, false);
+            alert('❌ Database Error!\n' + error.message);
             throw error;
         }
 
-        toast('✅ บันทึกข้อมูลสำเร็จ!');
+        alert('✅ บันทึกข้อมูลสำเร็จ!');
         clearForm();
         loadVisitsFromDB();
         switchTab('list');
@@ -477,7 +481,7 @@ async function executeSave() {
     } catch (error) {
         console.error(error);
         // ถ้าพังกลางทาง ให้เด้ง Alert ฟ้องสาเหตุเลย จะได้แก้ถูกจุด
-        toast('❌ เซฟไม่สำเร็จ: ' + (error.message || 'เช็ค Console'), false);
+        alert('💥 เซฟไม่ผ่าน! สาเหตุ: ' + (error.message || 'เช็ครายละเอียดใน Console'));
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
@@ -509,11 +513,24 @@ function renderList() {
     const pos = document.getElementById('fl-pos').value;
     const q = document.getElementById('fl-search').value.toLowerCase();
 
+    // Hide original records superseded by a pending_delete entry
+    const supersededIds = new Set(
+        visits.filter(v => v.original_id).map(v => v.original_id)
+    );
+
     const filtered = visits.filter(v => {
+        if (supersededIds.has(v.id)) return false;
         if (area && v.area !== area) return false;
         if (pos && v.position !== pos) return false;
         if (q && !v.outlet.toLowerCase().includes(q) && !v.person.toLowerCase().includes(q)) return false;
         return true;
+    }).sort((a, b) => {
+        // Pending delete always on top
+        if (a.pending_delete && !b.pending_delete) return -1;
+        if (!a.pending_delete && b.pending_delete) return 1;
+        // Then newest first
+        if (a.created_at && b.created_at) return b.created_at.localeCompare(a.created_at);
+        return b.id.localeCompare(a.id);
     });
 
     const el = document.getElementById('visit-list');
