@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 
 <body>
@@ -53,14 +53,12 @@
 
         <div id="tab-new" style="display:none">
             <div class="card">
-                <div class="section-title" id="form-title">Visit Information</div>
+                <div class="section-title">Visit Information</div>
                 <div class="form-grid">
-
                     <div class="form-group">
                         <label>Outlet Name <span class="req">*</span></label>
                         <input type="text" id="f-outlet" placeholder="e.g. The Empire Bar">
                     </div>
-
                     <div class="form-group">
                         <label>Area <span class="req">*</span></label>
                         <select id="f-area">
@@ -73,12 +71,10 @@
                             <option>SOUTH</option>
                         </select>
                     </div>
-
                     <div class="form-group">
                         <label>Person You Met <span class="req">*</span></label>
                         <input type="text" id="f-person" placeholder="Full name">
                     </div>
-
                     <div class="form-group">
                         <label>Their Position <span class="req">*</span></label>
                         <select id="f-position">
@@ -92,55 +88,48 @@
                             <option value="__other__">ETC — Please Type</option>
                         </select>
                     </div>
-
                     <div class="form-group full" id="pos-other-wrap" style="display:none">
                         <label>Specify Position <span class="req">*</span></label>
                         <input type="text" id="f-pos-other" placeholder="Enter position">
                     </div>
-
                     <div class="form-group">
                         <label>Visit Date <span class="req">*</span></label>
                         <input type="date" id="f-date">
                     </div>
-
                     <div class="form-group full">
                         <label>Reason for Visit <span class="req">*</span></label>
                         <textarea id="f-reason" rows="2" placeholder="Purpose of this visit..."></textarea>
                     </div>
-
                     <div class="form-group full">
                         <label>Result of Visit <span class="req">*</span></label>
                         <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
                     </div>
-
                 </div>
             </div>
 
             <div class="card">
                 <div class="section-title">
-                    Live Camera Photos
-                    <span id="photo-counter" style="font-size:11px;color:#888;font-weight:400;text-transform:none;letter-spacing:0">0 / 10</span>
+                    Live Evidence
+                    <span id="photo-counter" style="font-size:11px;color:#888;font-weight:400;text-transform:none;">0 / 10 Photos</span>
                 </div>
 
-                <div class="photo-area" id="camera-container" style="padding: 2rem 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 15px; background: #F8F9FA; border: 2px dashed #CED4DA; border-radius: 12px;">
-                    
-                    <div id="upload-prompt" style="text-align: center; margin-bottom: 10px;">
-                        <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
-                        <p style="font-size: 15px; color: #495057;"><strong>Take Live Photos</strong></p>
-                        <p style="font-size: 13px; color: #6C757D;">Capture up to 10 photos as evidence</p>
+                <div class="easy-camera-container">
+                    <div id="camera-idle" onclick="startCamera()">
+                        <div class="ec-icon">📸</div>
+                        <h3>Tap to Open Camera</h3>
+                        <p>Live photos are required</p>
                     </div>
 
-                    <video id="camera-view" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px; background: #000; display: none; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></video>
+                    <div id="camera-active" style="display: none;">
+                        <video id="camera-view" autoplay playsinline></video>
+                        <div class="ec-controls">
+                            <button class="btn-capture-huge" onclick="capturePhoto()">📸 CAPTURE</button>
+                            <button class="btn-close-cam" onclick="stopCamera()">✕ Close</button>
+                        </div>
+                    </div>
+
                     <canvas id="camera-canvas" style="display: none;"></canvas>
-
-                    <button class="btn-primary" id="btn-start-cam" onclick="startCamera()" type="button" style="width: 100%; max-width: 250px; padding: 14px; font-size: 15px;">📷 Open Camera</button>
-                    
-                    <div id="camera-action-btns" style="display: none; width: 100%; max-width: 400px; gap: 10px;">
-                        <button class="btn-primary" id="btn-capture" onclick="capturePhoto()" type="button" style="flex: 1; padding: 14px; background: #4a5c50;">📸 Capture</button>
-                        <button class="btn-secondary btn-danger" id="btn-stop-cam" onclick="stopCamera()" type="button" style="flex: 1; padding: 14px;">✕ Close</button>
-                    </div>
-
-                    <div class="photo-previews" id="previews" style="width: 100%; margin-top: 15px;"></div>
+                    <div class="photo-previews" id="previews" style="margin-top: 16px;"></div>
                 </div>
             </div>
 
@@ -148,36 +137,21 @@
                 <button class="btn-secondary" id="btn-clear" onclick="clearForm()">Clear</button>
                 <button class="btn-primary" id="btn-save" onclick="triggerSaveConfirm()">Save Visit</button>
             </div>
-
         </div>
 
         <div id="tab-list" style="display:none">
             <div class="filters">
                 <select class="filter-select" id="fl-area" onchange="renderList()">
                     <option value="">All areas</option>
-                    <option>BKK</option>
-                    <option>NORTH</option>
-                    <option>NORTHEAST</option>
-                    <option>WEST</option>
-                    <option>EAST</option>
-                    <option>SOUTH</option>
+                    <option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option>
                 </select>
-
                 <select class="filter-select" id="fl-pos" onchange="renderList()">
                     <option value="">All positions</option>
-                    <option>CEO</option>
-                    <option>CFO</option>
-                    <option>OWNER</option>
-                    <option>BARTENDER</option>
-                    <option>F&amp;B MANAGER</option>
-                    <option>MANAGER</option>
+                    <option>CEO</option><option>CFO</option><option>OWNER</option><option>BARTENDER</option><option>F&amp;B MANAGER</option><option>MANAGER</option>
                 </select>
-
                 <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="renderList()" style="flex: 1; min-width:140px">
             </div>
-
             <div class="visit-list" id="visit-list"></div>
-
             <div id="load-more-wrap" style="text-align: center; margin-top: 1rem; display: none;">
                 <button class="btn-secondary" onclick="loadMoreVisits()">Load More</button>
             </div>
@@ -193,9 +167,9 @@
     </div>
 
     <div class="confirm-overlay" id="save-confirm-overlay" onclick="if(event.target===this)closeSaveConfirm()">
-        <div class="confirm-box" style="max-width: 480px; padding: 1.5rem;">
-            <h3 style="margin-bottom: 16px; font-size: 18px; text-align: center;">Review Visit Details</h3>
-            <div id="save-confirm-text" style="margin-bottom: 24px;"></div>
+        <div class="confirm-box" style="padding: 1.5rem; max-width: 450px;">
+            <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 16px; font-weight: 600;">Review Visit Details</h3>
+            <div id="save-confirm-text" style="margin-bottom: 1.5rem; text-align: left;"></div>
             <div class="confirm-actions">
                 <button class="btn-secondary" onclick="closeSaveConfirm()">Edit</button>
                 <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
@@ -207,8 +181,8 @@
         <div class="confirm-box">
             <div class="confirm-icon" style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
             <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Void Record</h3>
-            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Please provide a reason for voiding this record:</p>
-            <textarea id="void-reason-input" rows="3" placeholder="e.g., Wrong outlet, duplicate entry..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
+            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for voiding this record:</p>
+            <textarea id="void-reason-input" rows="3" placeholder="e.g., Duplicated entry, wrong outlet..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
             <div class="confirm-actions">
                 <button class="btn-secondary" onclick="closeVoidConfirm()">Cancel</button>
                 <button class="btn-primary btn-danger" onclick="executeVoid()">Confirm Void</button>
@@ -223,7 +197,8 @@
     <div class="toast" id="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+
+    <script src="app.js?v=3"></script>
 </body>
 
 </html>
