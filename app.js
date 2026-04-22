@@ -28,13 +28,11 @@ try {
     bindPositionToggle();
     updateFormState();
 
-    // ระบบแสดงซ่อนวันที่นัดพบครั้งต่อไป
     document.getElementById('cb-next-visit').addEventListener('change', function() {
         document.getElementById('next-visit-wrap').style.display = this.checked ? 'block' : 'none';
         if(this.checked) document.getElementById('f-next-date').value = today();
     });
 
-    // 📍 ระบบจัดการดาวสีแดง: ซ่อนดาวแดงที่ Result หากมีการติ๊กช่องใดช่องหนึ่ง
     const followUpCheckboxes = document.querySelectorAll('.f-followup');
     const resultReqStar = document.getElementById('result-req-star');
     followUpCheckboxes.forEach(cb => {
@@ -317,7 +315,6 @@ function triggerSaveConfirm() {
     const reason = document.getElementById('f-reason').value.trim();
     const result = document.getElementById('f-result').value.trim();
 
-    // ประมวลผลช่อง Follow-up
     let followUps = [];
     document.querySelectorAll('.f-followup:checked').forEach(cb => {
         if(cb.id === 'cb-next-visit') {
@@ -328,12 +325,10 @@ function triggerSaveConfirm() {
         }
     });
 
-    // 📍 เช็คว่ากรอกข้อมูลครบไหม (Result จะไม่บังคับถ้ามีการติ๊ก Follow Ups)
     if (!outlet || !area || !person || !position || !date || !reason) {
         toast('Please fill in all required fields (*).', false); return;
     }
 
-    // หาก Result ว่าง และไม่มีการติ๊ก Follow Up เลย ให้แจ้งเตือนบังคับกรอก
     if (!result && followUps.length === 0) {
         toast('Please provide a Result of Visit or select a Follow-up Action.', false); return;
     }
@@ -342,13 +337,11 @@ function triggerSaveConfirm() {
         toast('Please capture at least 1 photo.', false); return;
     }
 
-    // รวมข้อความ Result และ Follow ups ให้อยู่ในบล็อกเดียวกันอย่างสวยงาม
     let finalResultText = result;
     if (followUps.length > 0) {
         if (finalResultText !== '') {
             finalResultText += `\n\n[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
         } else {
-            // ถ้าไม่ได้พิมพ์ Result พิมพ์แค่ Follow up จะโชว์แค่นี้
             finalResultText = `[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
         }
     }
@@ -451,7 +444,6 @@ function clearForm() {
     document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false);
     document.getElementById('next-visit-wrap').style.display = 'none';
     
-    // รีเซ็ตดาวสีแดงให้กลับมาโชว์ตอนเคลียร์ฟอร์ม
     const resultReqStar = document.getElementById('result-req-star');
     if (resultReqStar) resultReqStar.style.display = 'inline';
 
@@ -530,7 +522,7 @@ function openDetail(id) {
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── Void System ── */
+/* ── 🔴 Void System (เช็ค RLS) ── */
 function openVoidConfirm(id) {
     voidTargetId = id;
     document.getElementById('void-reason-input').value = '';
@@ -551,14 +543,30 @@ async function executeVoid() {
     toast('Voiding...', true);
 
     try {
-        const { error } = await supabaseClient.from('visits').update({ is_voided: true, void_reason: reasonInput }).eq('id', voidTargetId);
+        // 📍 ใส่ .select() ต่อท้าย เพื่อเช็คว่าอัปเดตลงฐานข้อมูลสำเร็จจริงหรือไม่ (หลบการโดน RLS บล็อคแบบเงียบๆ)
+        const { data, error } = await supabaseClient
+            .from('visits')
+            .update({ is_voided: true, void_reason: reasonInput })
+            .eq('id', voidTargetId)
+            .select();
+
         if (error) throw error;
+
+        // ถ้าอัปเดต 0 แถว (โดน RLS Policy บล็อค) data จะเป็น Array ว่าง
+        if (!data || data.length === 0) {
+            toast('❌ Permission Denied: กรุณาเปิดสิทธิ์ UPDATE ใน Supabase RLS ให้กับตาราง visits', false);
+            return;
+        }
+
         toast('Voided successfully.');
         closeDetail();
+        
+        // 📍 รีเฟรชรายการหลัง Void ทันที
         loadVisitsFromDB();
+        
     } catch (err) {
         console.error(err);
-        toast('Failed to void.', false);
+        toast('Failed to void record.', false);
     }
 }
 
