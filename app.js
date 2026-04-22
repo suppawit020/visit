@@ -30,12 +30,11 @@ try {
 
     switchTab(isProfileComplete() ? 'new' : 'profile');
     if (!isProfileComplete()) {
-        setTimeout(() => toast('⚠️ Please complete your profile to continue.', false), 500);
+        setTimeout(() => toast('Please complete your profile to continue.', false), 500);
     }
 
     if (supabaseClient) loadVisitsFromDB();
 
-    // 📍 ลบการทำงานของ Service Worker ตัวเก่าทิ้ง เพื่อป้องกันปัญหา Cache
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for (let registration of registrations) {
@@ -73,20 +72,19 @@ function saveProfile() {
     updateFormState();
 
     if (isProfileComplete()) {
-        toast('✅ Profile saved successfully!');
+        toast('Profile saved successfully.');
         switchTab('new');
     } else {
-        toast('⚠️ Profile saved, but please complete all fields.', false);
+        toast('Profile saved, but please complete all fields.', false);
     }
 }
 
 function updateFormState() {
     const isComplete = isProfileComplete();
     const formElements = document.querySelectorAll('#tab-new input, #tab-new select, #tab-new textarea, #btn-save, #btn-clear');
-
-    // Disable Idle Camera box if profile incomplete
+    
     const camIdle = document.getElementById('camera-idle');
-    if (camIdle) {
+    if(camIdle) {
         camIdle.style.pointerEvents = isComplete ? 'auto' : 'none';
         camIdle.style.opacity = isComplete ? '1' : '0.5';
     }
@@ -112,20 +110,11 @@ async function loadVisitsFromDB(isLoadMore = false) {
 
         if (!error && data) {
             const formattedData = data.map(v => ({
-                id: v.id,
-                outlet: v.outlet,
-                area: v.area,
-                person: v.person,
-                position: v.position,
-                date: v.date,
-                reason: v.reason,
-                result: v.result,
-                photos: v.photos || [],
-                creatorName: v.creator_name,
-                creatorEmail: v.creator_email,
-                creatorPosition: v.creator_position,
-                is_voided: v.is_voided || false,
-                void_reason: v.void_reason || ''
+                id: v.id, outlet: v.outlet, area: v.area, person: v.person,
+                position: v.position, date: v.date, reason: v.reason, result: v.result,
+                photos: v.photos || [], creatorName: v.creator_name,
+                creatorEmail: v.creator_email, creatorPosition: v.creator_position,
+                is_voided: v.is_voided || false, void_reason: v.void_reason || ''
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
@@ -147,7 +136,7 @@ function loadMoreVisits() {
 
 function switchTab(tab) {
     if (tab === 'new' && !isProfileComplete()) {
-        toast('⚠️ Please complete your profile first.', false);
+        toast('Please complete your profile first.', false);
         tab = 'profile';
     }
 
@@ -178,12 +167,12 @@ function getPosition() {
     return s === '__other__' ? document.getElementById('f-pos-other').value.trim() : s;
 }
 
-/* ── 📸 NEW EASY CAMERA LOGIC ── */
+/* ── CAMERA LOGIC ── */
 let cameraStream = null;
 
 async function startCamera() {
     if (!isProfileComplete()) return;
-
+    
     const video = document.getElementById('camera-view');
     const idleState = document.getElementById('camera-idle');
     const activeState = document.getElementById('camera-active');
@@ -198,7 +187,7 @@ async function startCamera() {
         activeState.style.display = 'block';
     } catch (err) {
         console.error("Camera Error:", err);
-        toast('❌ Cannot access camera. Check browser permissions.', false);
+        toast('Cannot access camera. Check browser permissions.', false);
     }
 }
 
@@ -213,7 +202,7 @@ function stopCamera() {
 
 function capturePhoto() {
     if (photos.length >= 10) {
-        toast('⚠️ Max 10 photos allowed.', false);
+        toast('Max 10 photos allowed.', false);
         return;
     }
 
@@ -226,14 +215,23 @@ function capturePhoto() {
 
     photos.push(canvas.toDataURL('image/jpeg', 0.7));
     renderPreviews();
-    toast('📸 Captured!');
+    toast('Photo captured successfully.');
 }
 
 function renderPreviews() {
     document.getElementById('photo-counter').textContent = `${photos.length} / 10 Photos`;
-    document.getElementById('previews').innerHTML = photos
-        .map((p, i) => `<div class="photo-thumb"><img src="${p}" alt=""><button onclick="removePhoto(${i})">✕</button></div>`)
-        .join('');
+    const previewContainer = document.getElementById('previews');
+    const capturedSection = document.getElementById('captured-section');
+    
+    if(photos.length > 0) {
+        capturedSection.style.display = 'block';
+        previewContainer.innerHTML = photos
+            .map((p, i) => `<div class="photo-thumb"><img src="${p}" alt="Preview"><button onclick="removePhoto(${i})">✕</button></div>`)
+            .join('');
+    } else {
+        capturedSection.style.display = 'none';
+        previewContainer.innerHTML = '';
+    }
 }
 
 function removePhoto(i) {
@@ -251,9 +249,7 @@ async function uploadPhotosToStorage(recordId) {
             const blob = await res.blob();
             const fileName = `${recordId}/photo_${Date.now()}_${i}.jpg`;
             const { error } = await supabaseClient.storage.from('visit_photos').upload(fileName, blob, {
-                contentType: 'image/jpeg',
-                cacheControl: '3600',
-                upsert: false
+                contentType: 'image/jpeg', cacheControl: '3600', upsert: false
             });
             if (!error) {
                 const { data: urlData } = supabaseClient.storage.from('visit_photos').getPublicUrl(fileName);
@@ -274,7 +270,7 @@ function getCurrentLocation() {
     });
 }
 
-/* ── 🟡 SAVE CONFIRMATION (CARD UI) ── */
+/* ── SAVE CONFIRMATION ── */
 function triggerSaveConfirm() {
     if (!isProfileComplete()) { switchTab('profile'); return; }
 
@@ -287,12 +283,10 @@ function triggerSaveConfirm() {
     const result = document.getElementById('f-result').value.trim();
 
     if (!outlet || !area || !person || !position || !date || !reason || !result) {
-        toast('⚠️ Please fill in all required fields (*).', false);
-        return;
+        toast('Please fill in all required fields (*).', false); return;
     }
     if (photos.length === 0) {
-        toast('⚠️ Please capture at least 1 photo.', false);
-        return;
+        toast('Please capture at least 1 photo.', false); return;
     }
 
     pendingSaveData = { outlet, area, person, position, date, reason, result };
@@ -317,11 +311,11 @@ function triggerSaveConfirm() {
             <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(result).replace(/\n/g, '<br>')}</div>
           </div>
           <div style="margin-top: 16px; border-top: 1px dashed #eee; padding-top: 12px; font-size: 13px; color: #555;">
-            📸 Attached Photos: <strong>${photos.length}</strong>
+            Attached Photos: <strong>${photos.length}</strong>
           </div>
         </div>
     `;
-
+    
     document.getElementById('save-confirm-text').innerHTML = reviewHtml;
     document.getElementById('save-confirm-overlay').classList.add('open');
 }
@@ -334,12 +328,12 @@ function closeSaveConfirm() {
 async function executeSave() {
     closeSaveConfirm();
     if (!pendingSaveData) return;
-    if (!supabaseClient) { toast('❌ Database disconnected.', false); return; }
+    if (!supabaseClient) { toast('Database disconnected.', false); return; }
 
     const saveBtn = document.getElementById('btn-save');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
-    toast('⏳ Uploading data...', true);
+    toast('Uploading data...', true);
 
     try {
         const id = Date.now().toString();
@@ -347,28 +341,20 @@ async function executeSave() {
         const newUploadedUrls = await uploadPhotosToStorage(id);
 
         const payload = {
-            id: id,
-            outlet: pendingSaveData.outlet,
-            area: pendingSaveData.area,
-            person: pendingSaveData.person,
-            position: pendingSaveData.position,
-            date: pendingSaveData.date,
-            reason: pendingSaveData.reason,
-            result: pendingSaveData.result,
-            photos: newUploadedUrls,
-            creator_name: userProfile.name,
-            creator_email: userProfile.email,
+            id: id, outlet: pendingSaveData.outlet, area: pendingSaveData.area,
+            person: pendingSaveData.person, position: pendingSaveData.position,
+            date: pendingSaveData.date, reason: pendingSaveData.reason,
+            result: pendingSaveData.result, photos: newUploadedUrls,
+            creator_name: userProfile.name, creator_email: userProfile.email,
             creator_position: userProfile.position,
-            lat: location ? location.lat : null,
-            lng: location ? location.lng : null,
-            is_voided: false,
-            void_reason: null
+            lat: location ? location.lat : null, lng: location ? location.lng : null,
+            is_voided: false, void_reason: null
         };
 
         const { error } = await supabaseClient.from('visits').insert([payload]);
         if (error) throw error;
-
-        alert('✅ Visit Record Saved Successfully!');
+        
+        alert('Visit Record Saved Successfully.');
 
         clearForm();
         loadVisitsFromDB();
@@ -376,7 +362,7 @@ async function executeSave() {
 
     } catch (error) {
         console.error(error);
-        toast('❌ Error saving record.', false);
+        toast('Error saving record.', false);
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
@@ -416,7 +402,7 @@ function renderList() {
     }
 
     el.innerHTML = filtered.map(v => {
-        const voidBadge = v.is_voided ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">❌ Voided</span>` : '';
+        const voidBadge = v.is_voided ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Voided</span>` : '';
         const cardStyle = v.is_voided ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;` : '';
 
         return `
@@ -449,27 +435,15 @@ function openDetail(id) {
     const v = visits.find(x => x.id === id);
     if (!v) return;
 
-    const visitInfo = [
-        ['Outlet', v.outlet],
-        ['Area', v.area],
-        ['Date', fmtDate(v.date)],
-        ['Person', v.person],
-        ['Position', v.position],
-        ['Reason', v.reason],
-        ['Result', v.result]
-    ];
-    const visitorInfo = [
-        ['Created By', v.creatorName || '-'],
-        ['Email', v.creatorEmail || '-'],
-        ['Role', v.creatorPosition || '-']
-    ];
+    const visitInfo = [['Outlet', v.outlet], ['Area', v.area], ['Date', fmtDate(v.date)], ['Person', v.person], ['Position', v.position], ['Reason', v.reason], ['Result', v.result]];
+    const visitorInfo = [['Created By', v.creatorName || '-'], ['Email', v.creatorEmail || '-'], ['Role', v.creatorPosition || '-']];
 
     const renderFields = (rows) => rows.map(([l, val]) => `<div class="detail-field"><span class="detail-label">${l}</span><span class="detail-value">${esc(val)}</span></div>`).join('');
 
     const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt=""></div>`).join('')}</div>` : '';
 
-    const topVoidAlert = v.is_voided ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">❌ This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>` : '';
-    const bottomVoidAction = !v.is_voided ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">❌ Void Record</button></div>` : '';
+    const topVoidAlert = v.is_voided ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>` : '';
+    const bottomVoidAction = !v.is_voided ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">Void Record</button></div>` : '';
 
   document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topVoidAlert}<div class="detail-grid" style="${v.is_voided ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomVoidAction}`;
   document.getElementById('detail-overlay').classList.add('open');
@@ -491,21 +465,21 @@ function closeVoidConfirm() {
 
 async function executeVoid() {
     const reasonInput = document.getElementById('void-reason-input').value.trim();
-    if (!reasonInput) { toast('⚠️ Please provide a reason.', false); return; }
+    if (!reasonInput) { toast('Please provide a reason.', false); return; }
     if (!voidTargetId || !supabaseClient) return;
 
     closeVoidConfirm();
-    toast('⏳ Voiding...', true);
+    toast('Voiding...', true);
 
     try {
         const { error } = await supabaseClient.from('visits').update({ is_voided: true, void_reason: reasonInput }).eq('id', voidTargetId);
         if (error) throw error;
-        toast('✅ Voided successfully.');
+        toast('Voided successfully.');
         closeDetail();
         loadVisitsFromDB();
     } catch (err) {
         console.error(err);
-        toast('❌ Failed to void.', false);
+        toast('Failed to void.', false);
     }
 }
 
