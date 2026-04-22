@@ -585,7 +585,7 @@ function openDetail(id) {
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Void System (DELETE + RE-INSERT) ── */
+/* ── 🔴 Void System ── */
 function openVoidConfirm(id) {
     voidTargetId = id;
     document.getElementById('void-reason-input').value = '';
@@ -602,19 +602,18 @@ async function executeVoid() {
     if (!reasonInput) { toast('Please provide a reason.', false); return; }
     if (!voidTargetId || !supabaseClient) return;
 
-    // snapshot ข้อมูลเดิมก่อนปิด overlay (ป้องกัน voidTargetId ถูก null)
     const targetId = voidTargetId;
     closeVoidConfirm();
     toast('Voiding...', true);
 
     try {
-        // หา record เดิมใน local array
         const original = visits.find(v => v.id === targetId);
         if (!original) { toast('Record not found.', false); return; }
 
-        // สร้าง payload ใหม่ที่มี is_voided = true
+        // INSERT record ใหม่ด้วย ID ใหม่ + voided flag (ไม่ต้องใช้ UPDATE หรือ DELETE)
+        const newId = 'void_' + Date.now().toString();
         const voidedPayload = {
-            id: original.id,
+            id: newId,
             outlet: original.outlet,
             area: original.area,
             person: original.person,
@@ -630,15 +629,6 @@ async function executeVoid() {
             void_reason: reasonInput
         };
 
-        // ลบ record เดิม
-        const { error: delError } = await supabaseClient
-            .from('visits')
-            .delete()
-            .eq('id', targetId);
-
-        if (delError) throw delError;
-
-        // INSERT ใหม่พร้อม voided flag
         const { error: insError } = await supabaseClient
             .from('visits')
             .insert([voidedPayload]);
@@ -648,8 +638,7 @@ async function executeVoid() {
         // อัปเดต local array
         const visitIndex = visits.findIndex(v => v.id === targetId);
         if (visitIndex !== -1) {
-            visits[visitIndex].is_voided = true;
-            visits[visitIndex].void_reason = reasonInput;
+            visits[visitIndex] = { ...visits[visitIndex], id: newId, is_voided: true, void_reason: reasonInput };
         }
 
         renderList();
