@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────
-   Visit / DC Check  —  app.js (Void Feature Edition)
+   Visit / DC Check  —  app.js (English & Enhanced UI)
    ───────────────────────────────────────── */
 
 const PROFILE_KEY = 'outlet_profile_v1';
@@ -10,13 +10,9 @@ let userProfile = { name: '', email: '', position: '' };
 let currentPage = 0;
 const PAGE_SIZE = 20;
 
-// ตัวแปรสำหรับเก็บข้อมูลไว้รอเซฟ
 let pendingSaveData = null;
-
-// ตัวแปรสำหรับเก็บ ID ของรายการที่จะยกเลิก (Void)
 let voidTargetId = null;
 
-// 🚀 ตั้งค่า Supabase 
 const SUPABASE_URL = 'https://tphoxfcoynxfnvpvzkfv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_YnMJCwa2jB_uhegOALtL6Q_DMiR--1X';
 let supabaseClient = null;
@@ -25,10 +21,10 @@ try {
     if (typeof window.supabase !== 'undefined') {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     } else {
-        console.warn("ไม่พบ Supabase Script");
+        console.warn("Supabase Script not found");
     }
 } catch (e) {
-    console.error("เกิดข้อผิดพลาดในการเชื่อมต่อ:", e);
+    console.error("Connection error:", e);
 }
 
 /* ── Init ── */
@@ -85,10 +81,10 @@ function saveProfile() {
     updateFormState();
 
     if (isProfileComplete()) {
-        toast('Profile saved successfully!');
+        toast('✅ Profile saved successfully!');
         switchTab('new');
     } else {
-        toast('Profile saved, but please complete all fields to unlock New Visit.', false);
+        toast('⚠️ Profile saved, but please complete all fields.', false);
     }
 }
 
@@ -150,7 +146,7 @@ async function loadVisitsFromDB(isLoadMore = false) {
             if (document.getElementById('tab-list').style.display !== 'none') renderList();
         }
     } catch (e) {
-        console.error("ดึงข้อมูลล้มเหลว:", e);
+        console.error("Fetch failed:", e);
     }
 }
 
@@ -205,8 +201,7 @@ let cameraStream = null;
 async function startCamera() {
     const video = document.getElementById('camera-view');
     const btnStart = document.getElementById('btn-start-cam');
-    const btnCapture = document.getElementById('btn-capture');
-    const btnStop = document.getElementById('btn-stop-cam');
+    const actionBtns = document.getElementById('camera-action-btns');
     const prompt = document.getElementById('upload-prompt');
 
     try {
@@ -218,13 +213,12 @@ async function startCamera() {
         video.srcObject = cameraStream;
         video.style.display = 'block';
         btnStart.style.display = 'none';
-        btnCapture.style.display = 'inline-flex';
-        btnStop.style.display = 'inline-flex';
+        actionBtns.style.display = 'flex'; // แสดงปุ่ม ถ่าย/ปิด แบบคู่
         if (prompt) prompt.style.display = 'none';
 
     } catch (err) {
         console.error("Camera Error:", err);
-        toast('❌ ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตให้เว็บเข้าถึงกล้องของคุณ', false);
+        toast('❌ Unable to access the camera. Please check permissions.', false);
     }
 }
 
@@ -235,8 +229,7 @@ function stopCamera() {
     }
     document.getElementById('camera-view').style.display = 'none';
     document.getElementById('btn-start-cam').style.display = 'inline-flex';
-    document.getElementById('btn-capture').style.display = 'none';
-    document.getElementById('btn-stop-cam').style.display = 'none';
+    document.getElementById('camera-action-btns').style.display = 'none';
 
     if (photos.length === 0) {
         document.getElementById('upload-prompt').style.display = 'block';
@@ -315,7 +308,7 @@ function getCurrentLocation() {
     });
 }
 
-/* ── 🟡 ระบบตรวจสอบและยืนยันการ Save แบบ Popup ── */
+/* ── 🟡 Review Confirm ── */
 function triggerSaveConfirm() {
     if (!isProfileComplete()) {
         switchTab('profile');
@@ -332,42 +325,43 @@ function triggerSaveConfirm() {
     const result = document.getElementById('f-result').value.trim();
 
     if (!outlet || !area || !person || !position || !date || !reason || !result) {
-        toast('⚠️ กรุณากรอกข้อมูลให้ครบทุกช่องที่มีเครื่องหมาย *', false);
+        toast('⚠️ Please fill in all required fields (*).', false);
         return;
     }
 
     if (photos.length === 0) {
-        toast('⚠️ กรุณาถ่ายภาพอย่างน้อย 1 ภาพเพื่อเป็นหลักฐาน', false);
+        toast('⚠️ Please capture at least 1 photo.', false);
         return;
     }
 
-    // เก็บข้อมูลลงตัวแปรไว้รอเซฟ
     pendingSaveData = { outlet, area, person, position, date, reason, result };
 
-    // 📍 สร้าง HTML แสดงข้อมูลทั้งหมดให้พนักงานตรวจสอบก่อนเซฟ
+    // 📍 เปลี่ยนการแสดงผลให้เป็นลักษณะเหมือนการ์ด Visit Card
     const reviewHtml = `
-        <div style="text-align: left; line-height: 1.6; font-size: 14px; color: #333;">
-            <div style="margin-bottom: 8px;"><strong>📍 สาขา:</strong> <span style="color:#111;">${esc(outlet)}</span> <span style="color:#888;">(${area})</span></div>
-            <div style="margin-bottom: 8px;"><strong>👤 ผู้ติดต่อ:</strong> <span style="color:#111;">${esc(person)}</span> <span style="color:#888;">(${esc(position)})</span></div>
-            <div style="margin-bottom: 8px;"><strong>📅 วันที่:</strong> <span style="color:#111;">${fmtDate(date)}</span></div>
-            
-            <div style="margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 12px;">
-                <strong style="color:var(--primary);">📝 เหตุผลที่เข้าพบ:</strong>
-                <div style="background:#FFF; border:1px solid #EBEBEB; padding:8px; border-radius:6px; margin-top:4px; color:#555;">${esc(reason).replace(/\n/g, '<br>')}</div>
+        <div class="visit-card" style="text-align: left; margin: 0; box-shadow: none; border: 1px solid #EBEBEB; cursor: default; transform: none;">
+            <div class="vc-header">
+                <span class="vc-name" style="font-size: 18px;">${esc(outlet)}</span>
+                <span class="vc-date">${fmtDate(date)}</span>
             </div>
-            
+            <div class="vc-meta" style="margin-bottom: 16px;">
+                <span class="badge badge-area">${area}</span>
+                <span class="badge badge-pos">${esc(position)}</span>
+                <span class="vc-person">${esc(person)}</span>
+            </div>
             <div style="margin-top: 12px;">
-                <strong style="color:var(--primary);">🎯 ผลลัพธ์ / สิ่งที่ต้องทำต่อ:</strong>
-                <div style="background:#FFF; border:1px solid #EBEBEB; padding:8px; border-radius:6px; margin-top:4px; color:#555;">${esc(result).replace(/\n/g, '<br>')}</div>
+                <strong style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Reason for Visit</strong>
+                <div class="vc-reason" style="margin-top: 4px; color: var(--text-main);">${esc(reason).replace(/\n/g, '<br>')}</div>
             </div>
-            
-            <div style="margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 12px; text-align: center;">
-                <strong>📸 หลักฐานรูปภาพ:</strong> <span style="color:var(--primary); font-weight:bold;">${photos.length}</span> ภาพ
+            <div style="margin-top: 16px;">
+                <strong style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Result of Visit</strong>
+                <div class="vc-reason" style="margin-top: 4px; color: var(--text-main);">${esc(result).replace(/\n/g, '<br>')}</div>
+            </div>
+            <div style="margin-top: 20px; border-top: 1px dashed #EBEBEB; padding-top: 12px; font-size: 13px; color: #555;">
+                📸 <strong>Attached Photos:</strong> ${photos.length} image(s)
             </div>
         </div>
     `;
-
-    // แทรก HTML เข้าไปในกล่อง Popup ยืนยัน
+    
     document.getElementById('save-confirm-text').innerHTML = reviewHtml;
     document.getElementById('save-confirm-overlay').classList.add('open');
 }
@@ -389,7 +383,7 @@ async function executeSave() {
     const saveBtn = document.getElementById('btn-save');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
-    toast('⏳ กำลังอัปโหลดข้อมูลและรูปภาพ...', true);
+    toast('⏳ Uploading data and photos...', true);
 
     try {
         const id = Date.now().toString();
@@ -418,9 +412,8 @@ async function executeSave() {
 
         const { error } = await supabaseClient.from('visits').insert([payload]);
         if (error) throw error;
-
-        // แจ้งเตือนแบบบังคับกดเพื่อให้เห็นชัดเจนว่าเซฟสำเร็จ
-        alert('✅ บันทึกข้อมูลเข้าสู่ระบบสำเร็จเรียบร้อยแล้ว!');
+        
+        alert('✅ Data successfully saved!');
 
         clearForm();
         loadVisitsFromDB();
@@ -428,7 +421,7 @@ async function executeSave() {
 
     } catch (error) {
         console.error(error);
-        toast('❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล', false);
+        toast('❌ Error saving data.', false);
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
@@ -469,7 +462,7 @@ function renderList() {
     }
 
     el.innerHTML = filtered.map(v => {
-        const voidBadge = v.is_voided ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">❌ ยกเลิกแล้ว</span>` : '';
+        const voidBadge = v.is_voided ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">❌ Voided</span>` : '';
         const cardStyle = v.is_voided ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;` : '';
 
         return `
@@ -535,15 +528,14 @@ function openDetail(id) {
 
     const topVoidAlert = v.is_voided ? `
         <div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-            <strong style="color: #D48A8A; font-size: 13px;">❌ รายการนี้ถูกยกเลิกแล้ว</strong>
-            <div style="font-size: 13px; color: #666; margin-top: 6px;">เหตุผล: ${esc(v.void_reason)}</div>
+            <strong style="color: #D48A8A; font-size: 13px;">❌ This record has been voided.</strong>
+            <div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div>
         </div>
     ` : '';
 
-    // 📍 มีแค่ปุ่ม Void อย่างเดียวเพื่อป้องกันการทุจริต
     const bottomVoidAction = !v.is_voided ? `
         <div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;">
-            <button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">❌ ยกเลิกรายการ (Void)</button>
+            <button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">❌ Void Record</button>
         </div>
     ` : '';
 
@@ -574,7 +566,7 @@ function closeDetail() {
   document.getElementById('detail-overlay').classList.remove('open');
 }
 
-/* ── 🔴 ระบบยกเลิกรายการ (Void System) ── */
+/* ── 🔴 Void System ── */
 function openVoidConfirm(id) {
     voidTargetId = id;
     document.getElementById('void-reason-input').value = '';
@@ -590,14 +582,14 @@ async function executeVoid() {
     const reasonInput = document.getElementById('void-reason-input').value.trim();
     
     if (!reasonInput) {
-        toast('⚠️ กรุณาระบุเหตุผลในการยกเลิกรายการ', false);
+        toast('⚠️ Please provide a reason for voiding.', false);
         return;
     }
 
     if (!voidTargetId || !supabaseClient) return;
 
     closeVoidConfirm();
-    toast('⏳ กำลังยกเลิกรายการ...', true);
+    toast('⏳ Voiding record...', true);
 
     try {
         const { error } = await supabaseClient
@@ -610,12 +602,12 @@ async function executeVoid() {
 
         if (error) throw error;
 
-        toast('✅ ยกเลิกรายการสำเร็จ');
+        toast('✅ Record voided successfully.');
         closeDetail();
         loadVisitsFromDB();
     } catch (err) {
         console.error(err);
-        toast('❌ ไม่สามารถยกเลิกรายการได้', false);
+        toast('❌ Failed to void record.', false);
     }
 }
 
