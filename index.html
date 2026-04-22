@@ -1,10 +1,15 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visit / DC Check</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#7C9082">
+    <link rel="apple-touch-icon" href="icon.png">
+
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -18,15 +23,37 @@
         </div>
 
         <div class="tabs">
-            <div class="tab active" onclick="switchTab('new')">New Visit</div>
+            <div class="tab active" onclick="switchTab('profile')">Profile</div>
+            <div class="tab" onclick="switchTab('new')">New Visit</div>
             <div class="tab" onclick="switchTab('list')">All Visits</div>
-            <div class="tab" onclick="switchTab('profile')">Profile</div>
         </div>
 
-        <div id="tab-new">
-
+        <div id="tab-profile">
             <div class="card">
-                <div class="section-title">Visit Information</div>
+                <div class="section-title">My Profile</div>
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Real Name</label>
+                        <input type="text" id="pf-name" placeholder="e.g. John Doe">
+                    </div>
+                    <div class="form-group full">
+                        <label>Email</label>
+                        <input type="email" id="pf-email" placeholder="e.g. john@example.com">
+                    </div>
+                    <div class="form-group full">
+                        <label>Your Position</label>
+                        <input type="text" id="pf-position" placeholder="e.g. Sales Executive">
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+            </div>
+        </div>
+
+        <div id="tab-new" style="display:none">
+            <div class="card">
+                <div class="section-title" id="form-title">Visit Information</div>
                 <div class="form-grid">
 
                     <div class="form-group">
@@ -37,14 +64,14 @@
                     <div class="form-group">
                         <label>Area <span class="req">*</span></label>
                         <select id="f-area">
-            <option value="">Select area</option>
-            <option>BKK</option>
-            <option>NORTH</option>
-            <option>NORTHEAST</option>
-            <option>WEST</option>
-            <option>EAST</option>
-            <option>SOUTH</option>
-          </select>
+                            <option value="">Select area</option>
+                            <option>BKK</option>
+                            <option>NORTH</option>
+                            <option>NORTHEAST</option>
+                            <option>WEST</option>
+                            <option>EAST</option>
+                            <option>SOUTH</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -55,15 +82,15 @@
                     <div class="form-group">
                         <label>Their Position <span class="req">*</span></label>
                         <select id="f-position">
-            <option value="">Select position</option>
-            <option>CEO</option>
-            <option>CFO</option>
-            <option>OWNER</option>
-            <option>BARTENDER</option>
-            <option>F&amp;B MANAGER</option>
-            <option>MANAGER</option>
-            <option value="__other__">ETC — Please Type</option>
-          </select>
+                            <option value="">Select position</option>
+                            <option>CEO</option>
+                            <option>CFO</option>
+                            <option>OWNER</option>
+                            <option>BARTENDER</option>
+                            <option>F&amp;B MANAGER</option>
+                            <option>MANAGER</option>
+                            <option value="__other__">ETC — Please Type</option>
+                        </select>
                     </div>
 
                     <div class="form-group full" id="pos-other-wrap" style="display:none">
@@ -91,87 +118,71 @@
 
             <div class="card">
                 <div class="section-title">
-                    Photos
+                    Live Camera Photos
                     <span id="photo-counter" style="font-size:11px;color:#888;font-weight:400;text-transform:none;letter-spacing:0">0 / 10</span>
                 </div>
 
-                <div class="photo-area" id="drop-zone">
-                    <input type="file" id="f-photos" accept="image/*" multiple>
+                <div class="photo-area" id="camera-container" style="padding: 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 15px;">
 
-                    <div id="upload-prompt">
-                        <div class="photo-icon">
-                            <svg viewBox="0 0 24 24">
-              <rect x="3" y="5" width="18" height="14" rx="2"/>
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M9 5l1.5-2h3L15 5"/>
-            </svg>
-                        </div>
-                        <p><strong>Click to upload photos</strong> or drag and drop</p>
-                        <p>JPG, PNG · up to 10 photos</p>
+                    <video id="camera-view" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px; background: #000; display: none;"></video>
+                    <canvas id="camera-canvas" style="display: none;"></canvas>
+
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                        <button class="btn-secondary" id="btn-start-cam" onclick="startCamera()" type="button">📷 Open Camera</button>
+                        <button class="btn-primary" id="btn-capture" onclick="capturePhoto()" type="button" style="display: none;">📸 Take Photo</button>
+                        <button class="btn-secondary btn-danger" id="btn-stop-cam" onclick="stopCamera()" type="button" style="display: none;">✕ Close Camera</button>
                     </div>
 
-                    <div class="photo-previews" id="previews"></div>
+                    <div id="upload-prompt" style="text-align: center;">
+                        <p><strong>Camera Only</strong></p>
+                        <p>You must take live photos (Max 10)</p>
+                    </div>
+
+                    <div class="photo-previews" id="previews" style="width: 100%;"></div>
                 </div>
             </div>
 
             <div class="form-actions">
-                <button class="btn-secondary" onclick="clearForm()">Clear</button>
-                <button class="btn-primary" onclick="saveVisit()">Save Visit</button>
+                <button class="btn-secondary" id="btn-clear" onclick="clearForm()">Clear</button>
+                <button class="btn-primary" id="btn-save" onclick="triggerSaveConfirm()">Save Visit</button>
             </div>
 
         </div>
-        <div id="tab-list" style="display:none">
 
+        <div id="tab-list" style="display:none">
             <div class="filters">
                 <select class="filter-select" id="fl-area" onchange="renderList()">
-        <option value="">All areas</option>
-        <option>BKK</option>
-        <option>NORTH</option>
-        <option>NORTHEAST</option>
-        <option>WEST</option>
-        <option>EAST</option>
-        <option>SOUTH</option>
-      </select>
+                    <option value="">All areas</option>
+                    <option>BKK</option>
+                    <option>NORTH</option>
+                    <option>NORTHEAST</option>
+                    <option>WEST</option>
+                    <option>EAST</option>
+                    <option>SOUTH</option>
+                </select>
 
                 <select class="filter-select" id="fl-pos" onchange="renderList()">
-        <option value="">All positions</option>
-        <option>CEO</option>
-        <option>CFO</option>
-        <option>OWNER</option>
-        <option>BARTENDER</option>
-        <option>F&amp;B MANAGER</option>
-        <option>MANAGER</option>
-      </select>
+                    <option value="">All positions</option>
+                    <option>CEO</option>
+                    <option>CFO</option>
+                    <option>OWNER</option>
+                    <option>BARTENDER</option>
+                    <option>F&amp;B MANAGER</option>
+                    <option>MANAGER</option>
+                </select>
 
-                <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet or person..." oninput="renderList()" style="min-width:180px">
+                <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="renderList()" style="flex: 1; min-width:140px">
             </div>
 
             <div class="visit-list" id="visit-list"></div>
 
-        </div>
-        <div id="tab-profile" style="display:none">
-            <div class="card">
-                <div class="section-title">My Profile</div>
-                <div class="form-grid">
-                    <div class="form-group full">
-                        <label>Real Name</label>
-                        <input type="text" id="pf-name" placeholder="e.g. John Doe">
-                    </div>
-                    <div class="form-group full">
-                        <label>Email</label>
-                        <input type="email" id="pf-email" placeholder="e.g. john@example.com">
-                    </div>
-                    <div class="form-group full">
-                        <label>Your Position</label>
-                        <input type="text" id="pf-position" placeholder="e.g. Sales Executive">
-                    </div>
-                </div>
-            </div>
-            <div class="form-actions">
-                <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+            <div id="load-more-wrap" style="text-align: center; margin-top: 1rem; display: none;">
+                <button class="btn-secondary" onclick="loadMoreVisits()">Load More</button>
             </div>
         </div>
+
     </div>
+
     <div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
         <div class="detail-box">
             <button class="detail-close" onclick="closeDetail()">✕</button>
@@ -179,12 +190,38 @@
         </div>
     </div>
 
+    <div class="confirm-overlay" id="save-confirm-overlay" onclick="if(event.target===this)closeSaveConfirm()">
+        <div class="confirm-box">
+            <div class="confirm-icon" style="font-size: 32px; margin-bottom: 12px;">📋</div>
+            <h3 style="margin-bottom: 12px; font-size: 18px;">ยืนยันการบันทึกข้อมูล</h3>
+            <div id="save-confirm-text" style="text-align: left; background: #F9F9F9; padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 24px; color: #555; white-space: pre-wrap; border: 1px solid #EBEBEB; line-height: 1.6;"></div>
+            <div class="confirm-actions">
+                <button class="btn-secondary" onclick="closeSaveConfirm()">กลับไปแก้ไข</button>
+                <button class="btn-primary" onclick="executeSave()">บันทึก (Save)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="confirm-overlay" id="void-confirm-overlay" onclick="if(event.target===this)closeVoidConfirm()">
+        <div class="confirm-box">
+            <div class="confirm-icon" style="font-size: 32px; margin-bottom: 12px;">⚠️</div>
+            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">ยกเลิกรายการ (Void)</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">โปรดระบุเหตุผลในการยกเลิกรายการนี้:</p>
+            <textarea id="void-reason-input" rows="3" placeholder="เช่น กรอกสาขาผิด, บันทึกซ้ำ..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
+            <div class="confirm-actions">
+                <button class="btn-secondary" onclick="closeVoidConfirm()">ปิด</button>
+                <button class="btn-primary btn-danger" onclick="executeVoid()">ยืนยันการยกเลิก</button>
+            </div>
+        </div>
+    </div>
+
     <div class="lightbox" id="lightbox" onclick="closeLightbox()">
         <img id="lb-img" src="" alt="Photo">
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <div class="toast" id="toast"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
 </body>
 
