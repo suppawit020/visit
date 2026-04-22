@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -102,6 +102,19 @@
                         <label>Result of Visit <span class="req">*</span></label>
                         <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
                     </div>
+
+                    <div class="form-group full" style="margin-top: 8px;">
+                        <label>Follow-up Actions <span style="color:var(--text-muted); font-weight:normal;">(Optional)</span></label>
+                        <div class="checkbox-grid">
+                            <label class="cb-label"><input type="checkbox" class="f-followup" value="Send Quotation / Documents"> Send Quotation/Docs</label>
+                            <label class="cb-label"><input type="checkbox" class="f-followup" value="Call Back Later"> Call Back Later</label>
+                            <label class="cb-label"><input type="checkbox" id="cb-next-visit" class="f-followup" value="Schedule Next Visit"> Schedule Next Visit</label>
+                        </div>
+                        <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5;">
+                            <label style="font-size: 12px; color: var(--primary);">Select Date for Next Visit:</label>
+                            <input type="date" id="f-next-date" style="margin-top: 6px; border-color: #B5CCBD;">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -122,7 +135,7 @@
                     <p style="font-size: 12px; color: #888; margin-top: 12px;">Capture live photos directly from your device</p>
                     
                     <div class="captured-section" id="captured-section" style="display: none;">
-                        <div class="captured-title">Captured Photos</div>
+                        <div class="captured-title">Captured Photos (Click to view)</div>
                         <div class="photo-previews" id="previews"></div>
                     </div>
                 </div>
@@ -156,7 +169,7 @@
 
     <div class="camera-modal" id="camera-modal">
         <div class="camera-header">
-            <span id="modal-photo-counter" style="color: #FFF; font-weight: 500; font-size: 14px;">0 / 10</span>
+            <span id="modal-photo-counter" style="color: #FFF; font-weight: 500; font-size: 14px; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px;">0 / 10</span>
             <button class="btn-close-modal" onclick="stopCamera()">Done</button>
         </div>
         <div class="camera-body">
@@ -205,6 +218,6 @@
     <div class="toast" id="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>
