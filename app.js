@@ -83,10 +83,11 @@ function updateFormState() {
     const isComplete = isProfileComplete();
     const formElements = document.querySelectorAll('#tab-new input, #tab-new select, #tab-new textarea, #btn-save, #btn-clear');
     
-    const camIdle = document.getElementById('camera-idle');
-    if(camIdle) {
-        camIdle.style.pointerEvents = isComplete ? 'auto' : 'none';
-        camIdle.style.opacity = isComplete ? '1' : '0.5';
+    const btnCam = document.getElementById('btn-start-cam');
+    if(btnCam) {
+        btnCam.disabled = !isComplete;
+        btnCam.style.opacity = isComplete ? '1' : '0.5';
+        btnCam.style.cursor = isComplete ? 'pointer' : 'not-allowed';
     }
 
     formElements.forEach(el => {
@@ -167,15 +168,14 @@ function getPosition() {
     return s === '__other__' ? document.getElementById('f-pos-other').value.trim() : s;
 }
 
-/* ── CAMERA LOGIC ── */
+/* ── 📷 FULLSCREEN MODAL CAMERA LOGIC ── */
 let cameraStream = null;
 
 async function startCamera() {
     if (!isProfileComplete()) return;
     
     const video = document.getElementById('camera-view');
-    const idleState = document.getElementById('camera-idle');
-    const activeState = document.getElementById('camera-active');
+    const modal = document.getElementById('camera-modal');
 
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({
@@ -183,8 +183,8 @@ async function startCamera() {
             audio: false
         });
         video.srcObject = cameraStream;
-        idleState.style.display = 'none';
-        activeState.style.display = 'block';
+        modal.classList.add('open');
+        updateModalCounter();
     } catch (err) {
         console.error("Camera Error:", err);
         toast('Cannot access camera. Check browser permissions.', false);
@@ -196,8 +196,11 @@ function stopCamera() {
         cameraStream.getTracks().forEach(track => track.stop());
         cameraStream = null;
     }
-    document.getElementById('camera-idle').style.display = 'block';
-    document.getElementById('camera-active').style.display = 'none';
+    document.getElementById('camera-modal').classList.remove('open');
+}
+
+function updateModalCounter() {
+    document.getElementById('modal-photo-counter').textContent = `${photos.length} / 10`;
 }
 
 function capturePhoto() {
@@ -214,12 +217,23 @@ function capturePhoto() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     photos.push(canvas.toDataURL('image/jpeg', 0.7));
+    
+    // Flash effect
+    video.style.opacity = '0.3';
+    setTimeout(() => { video.style.opacity = '1'; }, 150);
+
+    updateModalCounter();
     renderPreviews();
-    toast('Photo captured successfully.');
+    
+    // ถ้าถ่ายครบ 10 รูปให้ปิดกล้องอัตโนมัติ
+    if (photos.length >= 10) {
+        toast('Reached 10 photos maximum.');
+        setTimeout(stopCamera, 500);
+    }
 }
 
 function renderPreviews() {
-    document.getElementById('photo-counter').textContent = `${photos.length} / 10 Photos`;
+    document.getElementById('photo-counter').textContent = `${photos.length} / 10`;
     const previewContainer = document.getElementById('previews');
     const capturedSection = document.getElementById('captured-section');
     
@@ -237,6 +251,7 @@ function renderPreviews() {
 function removePhoto(i) {
     photos.splice(i, 1);
     renderPreviews();
+    updateModalCounter();
 }
 
 async function uploadPhotosToStorage(recordId) {
@@ -270,7 +285,7 @@ function getCurrentLocation() {
     });
 }
 
-/* ── SAVE CONFIRMATION ── */
+/* ── 🟡 SAVE CONFIRMATION WITH ACTUAL IMAGES ── */
 function triggerSaveConfirm() {
     if (!isProfileComplete()) { switchTab('profile'); return; }
 
@@ -290,6 +305,13 @@ function triggerSaveConfirm() {
     }
 
     pendingSaveData = { outlet, area, person, position, date, reason, result };
+
+    // 📍 สร้าง HTML รูปภาพให้แสดงในหน้าทบทวนก่อนเซฟ
+    let photosHtml = `<div class="confirm-photo-grid">`;
+    photos.forEach(p => {
+        photosHtml += `<img src="${p}" alt="Evidence">`;
+    });
+    photosHtml += `</div>`;
 
     const reviewHtml = `
         <div class="visit-card" style="margin: 0; box-shadow: none; border: 1px solid var(--border-light); cursor: default; transform: none; padding: 1rem;">
@@ -312,6 +334,7 @@ function triggerSaveConfirm() {
           </div>
           <div style="margin-top: 16px; border-top: 1px dashed #eee; padding-top: 12px; font-size: 13px; color: #555;">
             Attached Photos: <strong>${photos.length}</strong>
+            ${photosHtml}
           </div>
         </div>
     `;
