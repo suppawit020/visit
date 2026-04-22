@@ -789,3 +789,64 @@ select {
         padding: 16px;
     }
 }
+
+
+/* ── Custom Confirm Dialog ── */
+
+.confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.confirm-overlay.open {
+    display: flex;
+    animation: fadein 0.2s;
+}
+
+.confirm-box {
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    width: 100%;
+    max-width: 380px;
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.confirm-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+}
+
+.confirm-box h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 8px;
+}
+
+.confirm-box p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.confirm-actions button {
+    flex: 1;
+}
