@@ -28,10 +28,22 @@ try {
     bindPositionToggle();
     updateFormState();
 
-    // 📍 ระบบแสดงซ่อนวันที่นัดพบครั้งต่อไป
+    // ระบบแสดงซ่อนวันที่นัดพบครั้งต่อไป
     document.getElementById('cb-next-visit').addEventListener('change', function() {
         document.getElementById('next-visit-wrap').style.display = this.checked ? 'block' : 'none';
-        if(this.checked) document.getElementById('f-next-date').value = today(); // ตั้งค่าเริ่มต้นเป็นวันนี้
+        if(this.checked) document.getElementById('f-next-date').value = today();
+    });
+
+    // 📍 ระบบจัดการดาวสีแดง: ซ่อนดาวแดงที่ Result หากมีการติ๊กช่องใดช่องหนึ่ง
+    const followUpCheckboxes = document.querySelectorAll('.f-followup');
+    const resultReqStar = document.getElementById('result-req-star');
+    followUpCheckboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            const anyChecked = Array.from(followUpCheckboxes).some(c => c.checked);
+            if (resultReqStar) {
+                resultReqStar.style.display = anyChecked ? 'none' : 'inline';
+            }
+        });
     });
 
     switchTab(isProfileComplete() ? 'new' : 'profile');
@@ -303,16 +315,9 @@ function triggerSaveConfirm() {
     const position = getPosition();
     const date = document.getElementById('f-date').value;
     const reason = document.getElementById('f-reason').value.trim();
-    let result = document.getElementById('f-result').value.trim();
+    const result = document.getElementById('f-result').value.trim();
 
-    if (!outlet || !area || !person || !position || !date || !reason || !result) {
-        toast('Please fill in all required fields (*).', false); return;
-    }
-    if (photos.length === 0) {
-        toast('Please capture at least 1 photo.', false); return;
-    }
-
-    // 📍 ประมวลผลช่อง Follow-up
+    // ประมวลผลช่อง Follow-up
     let followUps = [];
     document.querySelectorAll('.f-followup:checked').forEach(cb => {
         if(cb.id === 'cb-next-visit') {
@@ -323,17 +328,35 @@ function triggerSaveConfirm() {
         }
     });
 
-    // นำ Follow-up ไปต่อท้ายใน Result
+    // 📍 เช็คว่ากรอกข้อมูลครบไหม (Result จะไม่บังคับถ้ามีการติ๊ก Follow Ups)
+    if (!outlet || !area || !person || !position || !date || !reason) {
+        toast('Please fill in all required fields (*).', false); return;
+    }
+
+    // หาก Result ว่าง และไม่มีการติ๊ก Follow Up เลย ให้แจ้งเตือนบังคับกรอก
+    if (!result && followUps.length === 0) {
+        toast('Please provide a Result of Visit or select a Follow-up Action.', false); return;
+    }
+
+    if (photos.length === 0) {
+        toast('Please capture at least 1 photo.', false); return;
+    }
+
+    // รวมข้อความ Result และ Follow ups ให้อยู่ในบล็อกเดียวกันอย่างสวยงาม
     let finalResultText = result;
     if (followUps.length > 0) {
-        finalResultText += `\n\n[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
+        if (finalResultText !== '') {
+            finalResultText += `\n\n[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
+        } else {
+            // ถ้าไม่ได้พิมพ์ Result พิมพ์แค่ Follow up จะโชว์แค่นี้
+            finalResultText = `[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
+        }
     }
 
     pendingSaveData = { outlet, area, person, position, date, reason, result: finalResultText };
 
     let photosHtml = `<div class="confirm-photo-grid">`;
     photos.forEach((p, index) => {
-        // ให้คลิกดูรูปในหน้า Confirm ได้ด้วย
         photosHtml += `<img src="${p}" alt="Evidence" onclick="openLightbox('${p}')" style="cursor: zoom-in;" title="Click to view">`;
     });
     photosHtml += `</div>`;
@@ -425,9 +448,12 @@ function clearForm() {
     document.getElementById('pos-other-wrap').style.display = 'none';
     document.getElementById('f-date').value = today();
     
-    // ล้างช่อง Checkbox Follow up ด้วย
     document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false);
     document.getElementById('next-visit-wrap').style.display = 'none';
+    
+    // รีเซ็ตดาวสีแดงให้กลับมาโชว์ตอนเคลียร์ฟอร์ม
+    const resultReqStar = document.getElementById('result-req-star');
+    if (resultReqStar) resultReqStar.style.display = 'inline';
 
     photos = [];
     renderPreviews();
