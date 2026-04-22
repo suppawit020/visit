@@ -1,12 +1,7 @@
-/* ─────────────────────────────────────────
-   Visit / DC Check  —  app.js (English & Enhanced UI)
-   ───────────────────────────────────────── */
-
 const PROFILE_KEY = 'outlet_profile_v1';
 let visits = [];
 let photos = [];
 let userProfile = { name: '', email: '', position: '' };
-
 let currentPage = 0;
 const PAGE_SIZE = 20;
 
@@ -20,8 +15,6 @@ let supabaseClient = null;
 try {
     if (typeof window.supabase !== 'undefined') {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    } else {
-        console.warn("Supabase Script not found");
     }
 } catch (e) {
     console.error("Connection error:", e);
@@ -33,7 +26,6 @@ try {
     populateProfileForm();
     document.getElementById('f-date').value = today();
     bindPositionToggle();
-
     updateFormState();
 
     switchTab(isProfileComplete() ? 'new' : 'profile');
@@ -41,13 +33,14 @@ try {
         setTimeout(() => toast('⚠️ Please complete your profile to continue.', false), 500);
     }
 
-    if (supabaseClient) {
-        loadVisitsFromDB();
-    }
+    if (supabaseClient) loadVisitsFromDB();
 
+    // 📍 ลบการทำงานของ Service Worker ตัวเก่าทิ้ง เพื่อป้องกันปัญหา Cache
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('SW setup failed'));
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (let registration of registrations) {
+                registration.unregister();
+            }
         });
     }
 })();
@@ -77,7 +70,6 @@ function saveProfile() {
 
     userProfile = { name, email, position };
     localStorage.setItem(PROFILE_KEY, JSON.stringify(userProfile));
-
     updateFormState();
 
     if (isProfileComplete()) {
@@ -90,26 +82,27 @@ function saveProfile() {
 
 function updateFormState() {
     const isComplete = isProfileComplete();
-    const formElements = document.querySelectorAll('#tab-new input, #tab-new select, #tab-new textarea, #btn-save, #btn-clear, #btn-start-cam');
+    const formElements = document.querySelectorAll('#tab-new input, #tab-new select, #tab-new textarea, #btn-save, #btn-clear');
+
+    // Disable Idle Camera box if profile incomplete
+    const camIdle = document.getElementById('camera-idle');
+    if (camIdle) {
+        camIdle.style.pointerEvents = isComplete ? 'auto' : 'none';
+        camIdle.style.opacity = isComplete ? '1' : '0.5';
+    }
 
     formElements.forEach(el => {
         if (el) {
             el.disabled = !isComplete;
-            if (!isComplete) {
-                el.style.backgroundColor = '#E9ECEF';
-                el.style.cursor = 'not-allowed';
-            } else {
-                el.style.backgroundColor = '';
-                el.style.cursor = '';
-            }
+            el.style.backgroundColor = !isComplete ? '#E9ECEF' : '';
+            el.style.cursor = !isComplete ? 'not-allowed' : '';
         }
     });
 }
 
-/* ── 🔄 SQL Data Loader ── */
+/* ── SQL Data Loader ── */
 async function loadVisitsFromDB(isLoadMore = false) {
     if (!isLoadMore) currentPage = 0;
-
     try {
         const { data, error } = await supabaseClient
             .from('visits')
@@ -136,11 +129,8 @@ async function loadVisitsFromDB(isLoadMore = false) {
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
-
             const loadMoreBtn = document.getElementById('load-more-wrap');
-            if (loadMoreBtn) {
-                loadMoreBtn.style.display = data.length === PAGE_SIZE ? 'block' : 'none';
-            }
+            if (loadMoreBtn) loadMoreBtn.style.display = data.length === PAGE_SIZE ? 'block' : 'none';
 
             updateCount();
             if (document.getElementById('tab-list').style.display !== 'none') renderList();
@@ -164,11 +154,7 @@ function switchTab(tab) {
     if (tab !== 'new') stopCamera();
 
     document.querySelectorAll('.tab').forEach((t, i) =>
-        t.classList.toggle('active',
-            (tab === 'profile' && i === 0) ||
-            (tab === 'new' && i === 1) ||
-            (tab === 'list' && i === 2)
-        )
+        t.classList.toggle('active', (tab === 'profile' && i === 0) || (tab === 'new' && i === 1) || (tab === 'list' && i === 2))
     );
 
     document.getElementById('tab-profile').style.display = tab === 'profile' ? '' : 'none';
@@ -183,42 +169,36 @@ function switchTab(tab) {
 
 function bindPositionToggle() {
     document.getElementById('f-position').addEventListener('change', function() {
-        document.getElementById('pos-other-wrap').style.display =
-            this.value === '__other__' ? '' : 'none';
+        document.getElementById('pos-other-wrap').style.display = this.value === '__other__' ? '' : 'none';
     });
 }
 
 function getPosition() {
     const s = document.getElementById('f-position').value;
-    return s === '__other__' ?
-        document.getElementById('f-pos-other').value.trim() :
-        s;
+    return s === '__other__' ? document.getElementById('f-pos-other').value.trim() : s;
 }
 
-/* ── 📸 Camera System ── */
+/* ── 📸 NEW EASY CAMERA LOGIC ── */
 let cameraStream = null;
 
 async function startCamera() {
+    if (!isProfileComplete()) return;
+
     const video = document.getElementById('camera-view');
-    const btnStart = document.getElementById('btn-start-cam');
-    const actionBtns = document.getElementById('camera-action-btns');
-    const prompt = document.getElementById('upload-prompt');
+    const idleState = document.getElementById('camera-idle');
+    const activeState = document.getElementById('camera-active');
 
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: false
         });
-
         video.srcObject = cameraStream;
-        video.style.display = 'block';
-        btnStart.style.display = 'none';
-        actionBtns.style.display = 'flex'; // แสดงปุ่ม ถ่าย/ปิด แบบคู่
-        if (prompt) prompt.style.display = 'none';
-
+        idleState.style.display = 'none';
+        activeState.style.display = 'block';
     } catch (err) {
         console.error("Camera Error:", err);
-        toast('❌ Unable to access the camera. Please check permissions.', false);
+        toast('❌ Cannot access camera. Check browser permissions.', false);
     }
 }
 
@@ -227,39 +207,30 @@ function stopCamera() {
         cameraStream.getTracks().forEach(track => track.stop());
         cameraStream = null;
     }
-    document.getElementById('camera-view').style.display = 'none';
-    document.getElementById('btn-start-cam').style.display = 'inline-flex';
-    document.getElementById('camera-action-btns').style.display = 'none';
-
-    if (photos.length === 0) {
-        document.getElementById('upload-prompt').style.display = 'block';
-    }
+    document.getElementById('camera-idle').style.display = 'block';
+    document.getElementById('camera-active').style.display = 'none';
 }
 
 function capturePhoto() {
     if (photos.length >= 10) {
-        toast('⚠️ You can only take up to 10 photos.', false);
+        toast('⚠️ Max 10 photos allowed.', false);
         return;
     }
 
     const video = document.getElementById('camera-view');
     const canvas = document.getElementById('camera-canvas');
     const ctx = canvas.getContext('2d');
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const base64Img = canvas.toDataURL('image/jpeg', 0.7);
-    photos.push(base64Img);
-
+    photos.push(canvas.toDataURL('image/jpeg', 0.7));
     renderPreviews();
-    toast('📸 Photo captured!');
+    toast('📸 Captured!');
 }
 
 function renderPreviews() {
-    document.getElementById('photo-counter').textContent = photos.length + ' / 10';
+    document.getElementById('photo-counter').textContent = `${photos.length} / 10 Photos`;
     document.getElementById('previews').innerHTML = photos
         .map((p, i) => `<div class="photo-thumb"><img src="${p}" alt=""><button onclick="removePhoto(${i})">✕</button></div>`)
         .join('');
@@ -268,9 +239,6 @@ function renderPreviews() {
 function removePhoto(i) {
     photos.splice(i, 1);
     renderPreviews();
-    if (photos.length === 0 && !cameraStream) {
-        document.getElementById('upload-prompt').style.display = 'block';
-    }
 }
 
 async function uploadPhotosToStorage(recordId) {
@@ -298,9 +266,7 @@ async function uploadPhotosToStorage(recordId) {
 
 function getCurrentLocation() {
     return new Promise((resolve) => {
-        if (!navigator.geolocation) {
-            resolve(null);
-        }
+        if (!navigator.geolocation) { resolve(null); return; }
         navigator.geolocation.getCurrentPosition(
             (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
             (err) => resolve(null), { enableHighAccuracy: true, timeout: 5000 }
@@ -308,13 +274,9 @@ function getCurrentLocation() {
     });
 }
 
-/* ── 🟡 Review Confirm ── */
+/* ── 🟡 SAVE CONFIRMATION (CARD UI) ── */
 function triggerSaveConfirm() {
-    if (!isProfileComplete()) {
-        switchTab('profile');
-        toast('⚠️ Please complete your profile first.', false);
-        return;
-    }
+    if (!isProfileComplete()) { switchTab('profile'); return; }
 
     const outlet = document.getElementById('f-outlet').value.trim();
     const area = document.getElementById('f-area').value;
@@ -328,7 +290,6 @@ function triggerSaveConfirm() {
         toast('⚠️ Please fill in all required fields (*).', false);
         return;
     }
-
     if (photos.length === 0) {
         toast('⚠️ Please capture at least 1 photo.', false);
         return;
@@ -336,32 +297,31 @@ function triggerSaveConfirm() {
 
     pendingSaveData = { outlet, area, person, position, date, reason, result };
 
-    // 📍 เปลี่ยนการแสดงผลให้เป็นลักษณะเหมือนการ์ด Visit Card
     const reviewHtml = `
-        <div class="visit-card" style="text-align: left; margin: 0; box-shadow: none; border: 1px solid #EBEBEB; cursor: default; transform: none;">
-            <div class="vc-header">
-                <span class="vc-name" style="font-size: 18px;">${esc(outlet)}</span>
-                <span class="vc-date">${fmtDate(date)}</span>
-            </div>
-            <div class="vc-meta" style="margin-bottom: 16px;">
-                <span class="badge badge-area">${area}</span>
-                <span class="badge badge-pos">${esc(position)}</span>
-                <span class="vc-person">${esc(person)}</span>
-            </div>
-            <div style="margin-top: 12px;">
-                <strong style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Reason for Visit</strong>
-                <div class="vc-reason" style="margin-top: 4px; color: var(--text-main);">${esc(reason).replace(/\n/g, '<br>')}</div>
-            </div>
-            <div style="margin-top: 16px;">
-                <strong style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Result of Visit</strong>
-                <div class="vc-reason" style="margin-top: 4px; color: var(--text-main);">${esc(result).replace(/\n/g, '<br>')}</div>
-            </div>
-            <div style="margin-top: 20px; border-top: 1px dashed #EBEBEB; padding-top: 12px; font-size: 13px; color: #555;">
-                📸 <strong>Attached Photos:</strong> ${photos.length} image(s)
-            </div>
+        <div class="visit-card" style="margin: 0; box-shadow: none; border: 1px solid var(--border-light); cursor: default; transform: none; padding: 1rem;">
+          <div class="vc-header">
+            <span class="vc-name">${esc(outlet)}</span>
+            <span class="vc-date">${fmtDate(date)}</span>
+          </div>
+          <div class="vc-meta">
+            <span class="badge badge-area">${area}</span>
+            <span class="badge badge-pos">${esc(position)}</span>
+            <span class="vc-person">${esc(person)}</span>
+          </div>
+          <div style="margin-top: 12px;">
+            <strong style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Reason for Visit</strong>
+            <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(reason).replace(/\n/g, '<br>')}</div>
+          </div>
+          <div style="margin-top: 12px;">
+            <strong style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Result</strong>
+            <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(result).replace(/\n/g, '<br>')}</div>
+          </div>
+          <div style="margin-top: 16px; border-top: 1px dashed #eee; padding-top: 12px; font-size: 13px; color: #555;">
+            📸 Attached Photos: <strong>${photos.length}</strong>
+          </div>
         </div>
     `;
-    
+
     document.getElementById('save-confirm-text').innerHTML = reviewHtml;
     document.getElementById('save-confirm-overlay').classList.add('open');
 }
@@ -373,22 +333,17 @@ function closeSaveConfirm() {
 
 async function executeSave() {
     closeSaveConfirm();
-
     if (!pendingSaveData) return;
-    if (!supabaseClient) {
-        toast('❌ Cannot connect to database.', false);
-        return;
-    }
+    if (!supabaseClient) { toast('❌ Database disconnected.', false); return; }
 
     const saveBtn = document.getElementById('btn-save');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Saving...';
-    toast('⏳ Uploading data and photos...', true);
+    toast('⏳ Uploading data...', true);
 
     try {
         const id = Date.now().toString();
         const location = await getCurrentLocation();
-
         const newUploadedUrls = await uploadPhotosToStorage(id);
 
         const payload = {
@@ -412,8 +367,8 @@ async function executeSave() {
 
         const { error } = await supabaseClient.from('visits').insert([payload]);
         if (error) throw error;
-        
-        alert('✅ Data successfully saved!');
+
+        alert('✅ Visit Record Saved Successfully!');
 
         clearForm();
         loadVisitsFromDB();
@@ -421,7 +376,7 @@ async function executeSave() {
 
     } catch (error) {
         console.error(error);
-        toast('❌ Error saving data.', false);
+        toast('❌ Error saving record.', false);
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
@@ -435,7 +390,6 @@ function clearForm() {
     document.getElementById('f-position').value = '';
     document.getElementById('pos-other-wrap').style.display = 'none';
     document.getElementById('f-date').value = today();
-
     photos = [];
     renderPreviews();
     stopCamera();
@@ -491,82 +445,39 @@ function renderThumbStrip(ph) {
     return `<div class="vc-thumbs">${visible}${extra}</div>`;
 }
 
-/* ── Detail view ── */
 function openDetail(id) {
     const v = visits.find(x => x.id === id);
     if (!v) return;
 
     const visitInfo = [
-        ['Outlet Name', v.outlet],
+        ['Outlet', v.outlet],
         ['Area', v.area],
-        ['Visit Date', fmtDate(v.date)],
-        ['Person Met', v.person],
-        ['Their Position', v.position],
-        ['Reason for Visit', v.reason],
-        ['Result of Visit', v.result]
+        ['Date', fmtDate(v.date)],
+        ['Person', v.person],
+        ['Position', v.position],
+        ['Reason', v.reason],
+        ['Result', v.result]
     ];
-
     const visitorInfo = [
-        ['Visited By', v.creatorName || '-'],
-        ['Visitor Email', v.creatorEmail || '-'],
-        ['Visitor Position', v.creatorPosition || '-']
+        ['Created By', v.creatorName || '-'],
+        ['Email', v.creatorEmail || '-'],
+        ['Role', v.creatorPosition || '-']
     ];
 
-    const renderFields = (rows) => rows.map(([l, val]) => `
-    <div class="detail-field">
-      <span class="detail-label">${l}</span>
-      <span class="detail-value">${esc(val)}</span>
-    </div>`).join('');
+    const renderFields = (rows) => rows.map(([l, val]) => `<div class="detail-field"><span class="detail-label">${l}</span><span class="detail-value">${esc(val)}</span></div>`).join('');
 
-    const photosHtml = v.photos.length ?
-        `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div>
-       <div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div>
-       <div class="detail-photos">
-         ${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt=""></div>`).join('')}
-       </div>`
-    : '';
+    const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt=""></div>`).join('')}</div>` : '';
 
-    const topVoidAlert = v.is_voided ? `
-        <div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-            <strong style="color: #D48A8A; font-size: 13px;">❌ This record has been voided.</strong>
-            <div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div>
-        </div>
-    ` : '';
+    const topVoidAlert = v.is_voided ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">❌ This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>` : '';
+    const bottomVoidAction = !v.is_voided ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">❌ Void Record</button></div>` : '';
 
-    const bottomVoidAction = !v.is_voided ? `
-        <div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;">
-            <button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">❌ Void Record</button>
-        </div>
-    ` : '';
-
-  document.getElementById('detail-content').innerHTML = `
-    <h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>
-    
-    ${topVoidAlert}
-
-    <div class="detail-grid" style="${v.is_voided ? 'opacity: 0.6;' : ''}">
-      <div class="detail-col-main">
-        ${renderFields(visitInfo)}
-      </div>
-      <div class="detail-col-visitor">
-        <div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>
-        ${renderFields(visitorInfo)}
-      </div>
-    </div>
-
-    ${photosHtml}
-
-    ${bottomVoidAction}
-  `;
-
+  document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topVoidAlert}<div class="detail-grid" style="${v.is_voided ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomVoidAction}`;
   document.getElementById('detail-overlay').classList.add('open');
 }
 
-function closeDetail() {
-  document.getElementById('detail-overlay').classList.remove('open');
-}
+function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Void System ── */
+/* ── Void System ── */
 function openVoidConfirm(id) {
     voidTargetId = id;
     document.getElementById('void-reason-input').value = '';
@@ -580,71 +491,35 @@ function closeVoidConfirm() {
 
 async function executeVoid() {
     const reasonInput = document.getElementById('void-reason-input').value.trim();
-    
-    if (!reasonInput) {
-        toast('⚠️ Please provide a reason for voiding.', false);
-        return;
-    }
-
+    if (!reasonInput) { toast('⚠️ Please provide a reason.', false); return; }
     if (!voidTargetId || !supabaseClient) return;
 
     closeVoidConfirm();
-    toast('⏳ Voiding record...', true);
+    toast('⏳ Voiding...', true);
 
     try {
-        const { error } = await supabaseClient
-            .from('visits')
-            .update({ 
-                is_voided: true, 
-                void_reason: reasonInput 
-            })
-            .eq('id', voidTargetId);
-
+        const { error } = await supabaseClient.from('visits').update({ is_voided: true, void_reason: reasonInput }).eq('id', voidTargetId);
         if (error) throw error;
-
-        toast('✅ Record voided successfully.');
+        toast('✅ Voided successfully.');
         closeDetail();
         loadVisitsFromDB();
     } catch (err) {
         console.error(err);
-        toast('❌ Failed to void record.', false);
+        toast('❌ Failed to void.', false);
     }
 }
 
-/* ── Lightbox ── */
-function openLightbox(src) {
-  document.getElementById('lb-img').src = src;
-  document.getElementById('lightbox').classList.add('open');
-}
-
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-}
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function today() {
-  return new Date().toISOString().split('T')[0];
-}
-
+/* ── Utils ── */
+function openLightbox(src) { document.getElementById('lb-img').src = src; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function today() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(d) {
-  if (!d) return '';
-  const [y, m, day] = d.split('-');
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if (!d) return ''; const [y, m, day] = d.split('-'); const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${parseInt(day)} ${months[parseInt(m)-1]} ${y}`;
 }
-
-function updateCount() {
-  document.getElementById('rec-count').textContent =
-    visits.length + (visits.length === 1 ? ' record' : ' records');
-}
-
+function updateCount() { document.getElementById('rec-count').textContent = visits.length + (visits.length === 1 ? ' record' : ' records'); }
 function toast(msg, ok = true) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.background = ok ? 'var(--primary)' : 'var(--danger)';
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  const t = document.getElementById('toast'); t.textContent = msg; t.style.background = ok ? 'var(--primary)' : 'var(--danger)';
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
 }
