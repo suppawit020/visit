@@ -140,7 +140,9 @@ async function loadVisitsFromDB(isLoadMore = false) {
                 creatorEmail: v.creator_email,
                 creatorPosition: v.creator_position,
                 is_voided: v.is_voided || false,
-                void_reason: v.void_reason || ''
+                void_reason: v.void_reason || '',
+                pending_void: v.pending_void || false,
+                pending_void_reason: v.pending_void_reason || ''
             }));
 
             visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
@@ -524,8 +526,16 @@ function renderList() {
     }
 
     el.innerHTML = filtered.map(v => {
-        const voidBadge = v.is_voided ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Voided</span>` : '';
-        const cardStyle = v.is_voided ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;` : '';
+        const voidBadge = v.is_voided
+            ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Voided</span>`
+            : v.pending_void
+                ? `<span class="badge" style="background:#FFF3E0; color:#E07B00;">⏳ Pending Void</span>`
+                : '';
+        const cardStyle = v.is_voided
+            ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;`
+            : v.pending_void
+                ? `opacity: 0.75; border: 1px dashed #E07B00; background: #FFFBF5; pointer-events: auto;`
+                : '';
 
         return `
         <div class="visit-card" style="${cardStyle}" onclick="openDetail('${v.id}')">
@@ -539,7 +549,7 @@ function renderList() {
             <span class="badge badge-pos">${esc(v.position)}</span>
             <span class="vc-person">${esc(v.person)}</span>
           </div>
-          <div class="vc-reason" style="${v.is_voided ? 'text-decoration: line-through;' : ''}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
+          <div class="vc-reason" style="${v.is_voided || v.pending_void ? 'text-decoration: line-through; color:#aaa;' : ''}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
           ${renderThumbStrip(v.photos)}
         </div>
         `;
@@ -576,8 +586,16 @@ function openDetail(id) {
 
     const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt="" style="cursor: zoom-in;"></div>`).join('')}</div>` : '';
 
-    const topVoidAlert = v.is_voided ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>` : '';
-    const bottomVoidAction = !v.is_voided ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">Void Record</button></div>` : '';
+    const topVoidAlert = v.is_voided
+        ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is voided.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.void_reason)}</div></div>`
+        : v.pending_void
+            ? `<div style="background: #FFF8EE; border: 1px solid #F5C97A; padding: 14px 16px; border-radius: 8px; margin-bottom: 16px; display:flex; align-items:flex-start; gap:10px;"><span style="font-size:20px; line-height:1;">⏳</span><div><strong style="color: #E07B00; font-size: 13px; display:block; margin-bottom:4px;">Pending Void — Awaiting Admin Approval</strong><div style="font-size: 13px; color: #666;">Void requested. This record is locked and cannot be edited until an admin reviews it.</div><div style="font-size: 12px; color: #999; margin-top:6px;">Reason: ${esc(v.pending_void_reason)}</div></div></div>`
+            : '';
+    const bottomVoidAction = (!v.is_voided && !v.pending_void)
+        ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openVoidConfirm('${v.id}')" style="margin-left: auto;">Void Record</button></div>`
+        : v.pending_void
+            ? `<div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); text-align:right;"><span style="font-size:12px; color:#E07B00; background:#FFF3E0; padding:6px 14px; border-radius:20px; border:1px solid #F5C97A;">🔒 Locked — Pending Admin Action</span></div>`
+            : '';
 
   document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topVoidAlert}<div class="detail-grid" style="${v.is_voided ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomVoidAction}`;
   document.getElementById('detail-overlay').classList.add('open');
@@ -604,15 +622,15 @@ async function executeVoid() {
 
     const targetId = voidTargetId;
     closeVoidConfirm();
-    toast('Voiding...', true);
+    toast('Submitting void request...', true);
 
     try {
         const original = visits.find(v => v.id === targetId);
         if (!original) { toast('Record not found.', false); return; }
 
-        // INSERT record ใหม่ด้วย ID ใหม่ + voided flag (ไม่ต้องใช้ UPDATE หรือ DELETE)
-        const newId = 'void_' + Date.now().toString();
-        const voidedPayload = {
+        // INSERT record ใหม่ที่มีสถานะ pending_void = true
+        const newId = 'pendingvoid_' + Date.now().toString();
+        const pendingPayload = {
             id: newId,
             outlet: original.outlet,
             area: original.area,
@@ -625,29 +643,36 @@ async function executeVoid() {
             creator_name: original.creatorName || '',
             creator_email: original.creatorEmail || '',
             creator_position: original.creatorPosition || '',
-            is_voided: true,
-            void_reason: reasonInput
+            is_voided: false,
+            void_reason: '',
+            pending_void: true,
+            pending_void_reason: reasonInput
         };
 
         const { error: insError } = await supabaseClient
             .from('visits')
-            .insert([voidedPayload]);
+            .insert([pendingPayload]);
 
         if (insError) throw insError;
 
-        // อัปเดต local array
+        // อัปเดต local array — แทนที่ record เดิมด้วย pending_void version
         const visitIndex = visits.findIndex(v => v.id === targetId);
         if (visitIndex !== -1) {
-            visits[visitIndex] = { ...visits[visitIndex], id: newId, is_voided: true, void_reason: reasonInput };
+            visits[visitIndex] = {
+                ...visits[visitIndex],
+                id: newId,
+                pending_void: true,
+                pending_void_reason: reasonInput
+            };
         }
 
         renderList();
-        toast('Voided successfully.');
+        toast('✅ Void request submitted. Awaiting admin approval.', true);
         closeDetail();
 
     } catch (err) {
         console.error(err);
-        toast('❌ Failed to void: ' + (err.message || 'Unknown error'), false);
+        toast('❌ Failed to submit: ' + (err.message || 'Unknown error'), false);
     }
 }
 
