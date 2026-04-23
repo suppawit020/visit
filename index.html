@@ -1,217 +1,321 @@
-<!DOCTYPE html>
-<html lang="en">
+// 🌟 ประกาศตัวแปรไว้บนสุด ป้องกันบัค Initialization
+let cameraStream = null;
+let visits = [];
+let photos = [];
+let userProfile = { name: '', email: '', position: '' };
+let currentPage = 0;
+const PAGE_SIZE = 20;
+let pendingSaveData = null;
+let deleteTargetId = null;
+let userRequests = [];
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checklist</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#7C9082">
-    <link rel="apple-touch-icon" href="icon.png">
-    <link rel="stylesheet" href="style.css">
-</head>
+const PROFILE_KEY = 'outlet_profile_v1';
+const SUPABASE_URL = 'https://yvbhrtuuhbvhdsmczsxr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_j32shAkGAVH3CaSJmtjhpA__Sz6yBj5';
+let supabaseClient = null;
 
-<body>
+try { if (typeof window.supabase !== 'undefined') supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.error(e); }
 
-    <div class="app">
-        <div class="header">
-            <h1>Checklist</h1>
-            <span class="rec-badge" id="rec-count">0 records</span>
+(function init() {
+    loadProfile();
+    populateProfileForm();
+    document.getElementById('f-date').value = today();
+    document.getElementById('f-position').addEventListener('change', function() { document.getElementById('pos-other-wrap').style.display = this.value === '__other__' ? '' : 'none'; });
+    document.getElementById('cb-next-visit').addEventListener('change', function() {
+        document.getElementById('next-visit-wrap').style.display = this.checked ? 'block' : 'none';
+        if (this.checked) document.getElementById('f-next-date').value = today();
+    });
+    updateFormState();
+    switchTab(isProfileComplete() ? 'new' : 'profile');
+    if (supabaseClient) loadVisitsFromDB();
+})();
+
+function loadProfile() { try { const saved = JSON.parse(localStorage.getItem(PROFILE_KEY)); if (saved) userProfile = saved; } catch (e) {} }
+
+function populateProfileForm() {
+    document.getElementById('pf-name').value = userProfile.name || '';
+    document.getElementById('pf-email').value = userProfile.email || '';
+    document.getElementById('pf-position').value = userProfile.position || '';
+}
+
+function isProfileComplete() { return userProfile.name !== '' && userProfile.email !== ''; }
+
+function saveProfile() {
+    userProfile = { name: document.getElementById('pf-name').value.trim(), email: document.getElementById('pf-email').value.trim(), position: document.getElementById('pf-position').value.trim() };
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(userProfile));
+    updateFormState();
+    if (isProfileComplete()) { toast('Profile saved.');
+        switchTab('new'); } else { toast('Please complete all fields.', false); }
+}
+
+function updateFormState() {
+    const btn = document.getElementById('btn-start-cam');
+    if (btn) { btn.disabled = !isProfileComplete();
+        btn.style.opacity = isProfileComplete() ? '1' : '0.5'; }
+}
+
+async function loadVisitsFromDB() {
+    if (!supabaseClient) return;
+    try {
+        const { data: reqData } = await supabaseClient.from('delete_requests').select('*');
+        userRequests = reqData || [];
+        const { data, error } = await supabaseClient.from('visits').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        visits = data || [];
+        updateCount();
+        if (document.getElementById('tab-list').style.display !== 'none') renderList();
+    } catch (e) { console.error(e); }
+}
+
+function switchTab(tab) {
+    if (tab === 'new' && !isProfileComplete()) { toast('Complete profile first.', false);
+        tab = 'profile'; }
+    if (tab !== 'new') stopCamera();
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (tab === 'profile' && i === 0) || (tab === 'new' && i === 1) || (tab === 'list' && i === 2)));
+    document.getElementById('tab-profile').style.display = tab === 'profile' ? '' : 'none';
+    document.getElementById('tab-new').style.display = tab === 'new' ? '' : 'none';
+    document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
+    if (tab === 'list') { renderList(); if (supabaseClient) loadVisitsFromDB(); }
+}
+
+function getPosition() { const s = document.getElementById('f-position').value; return s === '__other__' ? document.getElementById('f-pos-other').value.trim() : s; }
+
+/* ── 📸 แก้ไขระบบกล้อง ── */
+async function startCamera() {
+    if (!isProfileComplete()) return;
+    const video = document.getElementById('camera-view');
+    updateMiniGalleryThumb();
+    try {
+        // เช็คและปิดกล้องเก่าก่อนเปิดใหม่เสมอ
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(t => t.stop());
+            cameraStream = null;
+        }
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        video.srcObject = cameraStream;
+        document.getElementById('camera-modal').classList.add('open');
+        updateModalCounter();
+    } catch (e) { toast('Cannot access camera. Check permissions.', false); }
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    document.getElementById('camera-modal').classList.remove('open');
+    closeCameraGallery();
+}
+
+function capturePhoto() {
+    if (photos.length >= 10) return;
+    const v = document.getElementById('camera-view'),
+        c = document.getElementById('camera-canvas');
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    photos.push(c.toDataURL('image/jpeg', 0.7));
+    v.style.opacity = '0.3';
+    setTimeout(() => { v.style.opacity = '1'; }, 150);
+    updateModalCounter();
+    renderPreviews();
+    updateMiniGalleryThumb();
+    if (photos.length >= 10) setTimeout(stopCamera, 500);
+}
+
+function updateModalCounter() { const el = document.getElementById('modal-photo-counter'); if (el) el.textContent = `${photos.length} / 10`; }
+
+function updateMiniGalleryThumb() {
+    const r = document.getElementById('camera-recent-thumb');
+    if (!r) return;
+    r.style.backgroundImage = photos.length > 0 ? `url(${photos[photos.length - 1]})` : '';
+    r.style.opacity = photos.length > 0 ? '1' : '0';
+}
+
+function openCameraGallery() {
+    if (photos.length === 0) return;
+    document.getElementById('camera-header').style.display = 'none';
+    document.getElementById('camera-body').style.display = 'none';
+    document.getElementById('camera-footer').style.display = 'none';
+    document.getElementById('camera-gallery').style.display = 'flex';
+    renderCameraGallery();
+}
+
+function closeCameraGallery() {
+    const h = document.getElementById('camera-header');
+    if (h) {
+        h.style.display = 'flex';
+        document.getElementById('camera-body').style.display = 'flex';
+        document.getElementById('camera-footer').style.display = 'flex';
+        document.getElementById('camera-gallery').style.display = 'none';
+        updateMiniGalleryThumb();
+    }
+}
+
+function renderCameraGallery() { document.getElementById('cg-grid').innerHTML = photos.map((p, i) => `<div class="cg-item"><img src="${p}" onclick="openLightbox('${p}')"><button class="cg-delete" onclick="removePhotoFromGallery(${i})">✕</button></div>`).join(''); }
+
+function removePhotoFromGallery(i) {
+    photos.splice(i, 1);
+    renderPreviews();
+    updateModalCounter();
+    if (photos.length === 0) closeCameraGallery();
+    else renderCameraGallery();
+}
+
+function renderPreviews() {
+    document.getElementById('photo-counter').textContent = `${photos.length} / 10`;
+    const s = document.getElementById('captured-section');
+    if (photos.length > 0) {
+        s.style.display = 'block';
+        document.getElementById('previews').innerHTML = photos.map((p, i) => `<div class="photo-thumb"><img src="${p}" onclick="openLightbox('${p}')"><button onclick="removePhoto(${i})">✕</button></div>`).join('');
+    } else { s.style.display = 'none'; }
+}
+
+function removePhoto(i) {
+    photos.splice(i, 1);
+    renderPreviews();
+    updateModalCounter();
+    updateMiniGalleryThumb();
+}
+
+async function uploadPhotosToStorage(recordId) {
+    let urls = [];
+    if (!supabaseClient) return urls;
+    for (let i = 0; i < photos.length; i++) {
+        try {
+            const res = await fetch(photos[i]);
+            const blob = await res.blob();
+            const { error } = await supabaseClient.storage.from('visit_photos').upload(`${recordId}/photo_${i}.jpg`, blob, { contentType: 'image/jpeg' });
+            if (!error) {
+                const { data } = supabaseClient.storage.from('visit_photos').getPublicUrl(`${recordId}/photo_${i}.jpg`);
+                urls.push(data.publicUrl);
+            }
+        } catch (e) {}
+    }
+    return urls;
+}
+
+function triggerSaveConfirm() {
+    const outlet = document.getElementById('f-outlet').value.trim(),
+        area = document.getElementById('f-area').value,
+        person = document.getElementById('f-person').value.trim(),
+        position = getPosition(),
+        date = document.getElementById('f-date').value,
+        reason = document.getElementById('f-reason').value.trim(),
+        result = document.getElementById('f-result').value.trim();
+    if (!outlet || !area || !person || !date || !reason) return toast('Please fill in required fields.', false);
+    if (photos.length === 0) return toast('Capture at least 1 photo.', false);
+    pendingSaveData = { outlet, area, person, position, date, reason, result };
+    document.getElementById('save-confirm-text').innerHTML = `<b>${esc(outlet)}</b><br>${esc(reason)}`;
+    document.getElementById('save-confirm-overlay').classList.add('open');
+}
+
+function closeSaveConfirm() {
+    document.getElementById('save-confirm-overlay').classList.remove('open');
+    pendingSaveData = null;
+}
+
+async function executeSave() {
+    if (!pendingSaveData) return;
+    document.getElementById('save-confirm-overlay').classList.remove('open');
+    const saveBtn = document.getElementById('btn-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    toast('Uploading data...', true);
+    try {
+        const id = Date.now().toString();
+        const urls = await uploadPhotosToStorage(id);
+        const payload = {...pendingSaveData, id, photos: urls, creator_name: userProfile.name, creator_email: userProfile.email, creator_position: userProfile.position, is_deleted: false };
+        await supabaseClient.from('visits').insert([payload]);
+        toast('✅ Visit saved!');
+        clearForm();
+        await loadVisitsFromDB();
+        switchTab('list');
+    } catch (err) { toast('Failed: ' + err.message, false); } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Visit';
+        pendingSaveData = null;
+    }
+}
+
+function clearForm() {
+    ['f-outlet', 'f-person', 'f-pos-other', 'f-reason', 'f-result'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('f-area').value = '';
+    document.getElementById('f-position').value = '';
+    document.getElementById('f-date').value = today();
+    photos = [];
+    renderPreviews();
+    stopCamera();
+}
+
+function getVisitStatus(v) { const req = userRequests.find(r => r.visit_id === v.id); return req ? req.status : (v.is_deleted ? 'pending' : 'active'); }
+
+function renderList() {
+    const area = document.getElementById('fl-area').value,
+        pos = document.getElementById('fl-pos').value,
+        q = document.getElementById('fl-search').value.toLowerCase();
+    const filtered = visits.filter(v => {
+        if (getVisitStatus(v) === 'approved') return false; // ซ่อนรายการที่แอดมินลบแล้ว
+        if (area && v.area !== area) return false;
+        if (pos && !v.position.toLowerCase().includes(pos.toLowerCase())) return false;
+        if (q && !v.outlet.toLowerCase().includes(q)) return false;
+        return true;
+    });
+
+    const el = document.getElementById('visit-list');
+    if (!filtered.length) { el.innerHTML = `<div class="empty-state">No visits found.</div>`; return; }
+    el.innerHTML = filtered.map(v => {
+        const s = getVisitStatus(v);
+        return `<div class="visit-card" style="${s === 'pending' ? 'opacity:0.6' : ''}" onclick="openDetail('${v.id}')">
+          <div class="vc-header"><b>${esc(v.outlet)}</b> <span style="font-size:12px;color:#888;">${fmtDate(v.date)}</span></div>
+          <div style="font-size:12px;color:#666;margin-top:6px;">${esc(v.reason).substring(0, 60)}...</div>
+        </div>`;
+    }).join('');
+}
+
+function openDetail(id) {
+    const v = visits.find(x => x.id === id);
+    if (!v) return;
+    const isOwner = (userProfile.email && v.creator_email === userProfile.email);
+    const s = getVisitStatus(v);
+
+    let phtml = '';
+    if (v.photos) {
+        let ph = Array.isArray(v.photos) ? v.photos : JSON.parse(v.photos || '[]');
+        phtml = ph.map(p => `<img src="${p}" onclick="openLightbox('${p}')" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:zoom-in;">`).join(' ');
+    }
+
+    document.getElementById('detail-content').innerHTML = `
+        <h2 style="font-size:18px;margin-bottom:1rem;">${esc(v.outlet)}</h2>
+        ${s === 'pending' ? `<div style="color:#D48A8A;font-size:13px;margin-bottom:1rem;">⚠️ Pending Deletion</div>` : ''}
+        <div style="font-size:13px;line-height:1.6;color:#444;">
+            <b>Area:</b> ${esc(v.area)}<br><b>Person:</b> ${esc(v.person)} (${esc(v.position)})<br><br>
+            <b>Reason:</b><br>${esc(v.reason).replace(/\n/g,'<br>')}<br><br><b>Result:</b><br>${esc(v.result).replace(/\n/g,'<br>')}
         </div>
+        <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">${phtml}</div>
+        ${(isOwner && s !== 'pending') ? `<div style="text-align:right; margin-top:1rem; border-top:1px solid #EEE; padding-top:1rem;"><button class="btn-secondary btn-danger" onclick="openDeleteRequest('${v.id}')">Request Deletion</button></div>` : ''}
+    `;
+    document.getElementById('detail-overlay').classList.add('open');
+}
+function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-        <div class="tabs">
-            <div class="tab active" onclick="switchTab('profile')">Profile</div>
-            <div class="tab" onclick="switchTab('new')">New Visit</div>
-            <div class="tab" onclick="switchTab('list')">All Visits</div>
-        </div>
+function openDeleteRequest(id) { deleteTargetId = id; document.getElementById('delete-confirm-overlay').classList.add('open'); }
+function closeDeleteRequest() { deleteTargetId = null; document.getElementById('delete-confirm-overlay').classList.remove('open'); }
+async function executeDeleteRequest() {
+    const reason = document.getElementById('delete-reason-input').value.trim();
+    if (!reason) return toast('Please provide a reason.', false);
+    closeDeleteRequest(); toast('Submitting...', true);
+    try {
+        await supabaseClient.from('delete_requests').insert([{ visit_id: deleteTargetId, requested_by_email: userProfile.email, requested_by_name: userProfile.name, reason, status: 'pending' }]);
+        await supabaseClient.from('visits').update({ is_deleted: true, delete_reason: reason }).eq('id', deleteTargetId);
+        await loadVisitsFromDB(); toast('Request submitted.'); closeDetail();
+    } catch (err) { toast('Failed: ' + err.message, false); }
+}
 
-        <div id="tab-profile">
-            <div class="card">
-                <div class="section-title">My Profile</div>
-                <div class="form-grid">
-                    <div class="form-group full">
-                        <label>Real Name</label>
-                        <input type="text" id="pf-name" placeholder="e.g. John Doe">
-                    </div>
-                    <div class="form-group full">
-                        <label>Email</label>
-                        <input type="email" id="pf-email" placeholder="e.g. john@example.com">
-                    </div>
-                    <div class="form-group full">
-                        <label>Your Position</label>
-                        <input type="text" id="pf-position" placeholder="e.g. Sales Executive">
-                    </div>
-                </div>
-            </div>
-            <div class="form-actions">
-                <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
-            </div>
-        </div>
-
-        <div id="tab-new" style="display:none">
-            <div class="card">
-                <div class="section-title">Visit Information</div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Outlet Name <span class="req">*</span></label>
-                        <input type="text" id="f-outlet" placeholder="e.g. The Empire Bar">
-                    </div>
-                    <div class="form-group">
-                        <label>Area <span class="req">*</span></label>
-                        <select id="f-area">
-                            <option value="">Select area</option>
-                            <option>BKK</option><option>NORTH</option><option>NORTHEAST</option>
-                            <option>WEST</option><option>EAST</option><option>SOUTH</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Person You Met <span class="req">*</span></label>
-                        <input type="text" id="f-person" placeholder="Full name">
-                    </div>
-                    <div class="form-group">
-                        <label>Their Position <span class="req">*</span></label>
-                        <select id="f-position">
-                            <option value="">Select position</option>
-                            <option>CEO</option><option>CFO</option><option>OWNER</option>
-                            <option>BARTENDER</option><option>F&amp;B MANAGER</option>
-                            <option>MANAGER</option><option value="__other__">ETC — Please Type</option>
-                        </select>
-                    </div>
-                    <div class="form-group full" id="pos-other-wrap" style="display:none">
-                        <label>Specify Position <span class="req">*</span></label>
-                        <input type="text" id="f-pos-other" placeholder="Enter position">
-                    </div>
-                    <div class="form-group">
-                        <label>Visit Date <span class="req">*</span></label>
-                        <input type="date" id="f-date" lang="en-US">
-                    </div>
-                    <div class="form-group full">
-                        <label>Reason for Visit <span class="req">*</span></label>
-                        <textarea id="f-reason" rows="2" placeholder="Purpose of this visit..."></textarea>
-                    </div>
-
-                    <div class="form-group full">
-                        <label>Result of Visit <span class="req" id="result-req-star">*</span></label>
-                        <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
-                    </div>
-
-                    <div class="form-group full" style="margin-top: 8px;">
-                        <label>Follow-up Actions <span style="color:var(--text-muted); font-weight:normal;">(Optional)</span></label>
-                        <div class="checkbox-grid">
-                            <label class="cb-label"><input type="checkbox" class="f-followup" value="Send Quotation / Documents"> Send Quotation/Docs</label>
-                            <label class="cb-label"><input type="checkbox" class="f-followup" value="Call Back Later"> Call Back Later</label>
-                            <label class="cb-label"><input type="checkbox" id="cb-next-visit" class="f-followup" value="Schedule Next Visit"> Schedule Next Visit</label>
-                        </div>
-                        <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5;">
-                            <label style="font-size: 12px; color: var(--primary); display: block; margin-bottom: 6px;">Select Date for Next Visit:</label>
-                            <input type="date" id="f-next-date" lang="en-US" style="border-color: #B5CCBD; width: 100%;">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="section-title" style="display: flex; justify-content: space-between;">
-                    <span>Live Evidence</span>
-                    <span id="photo-counter" style="color: var(--primary); font-weight: 600;">0 / 10</span>
-                </div>
-
-                <div class="easy-camera-container">
-                    <button class="btn-open-camera" id="btn-start-cam" onclick="startCamera()" type="button">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                        OPEN CAMERA
-                    </button>
-                    <p style="font-size: 12px; color: #888; margin-top: 12px;">Capture live photos directly from your device</p>
-                    <div class="captured-section" id="captured-section" style="display: none;">
-                        <div class="captured-title">Captured Photos (Click to view)</div>
-                        <div class="photo-previews" id="previews"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button class="btn-secondary" id="btn-clear" onclick="clearForm()">Clear</button>
-                <button class="btn-primary" id="btn-save" onclick="triggerSaveConfirm()">Save Visit</button>
-            </div>
-        </div>
-
-        <div id="tab-list" style="display:none">
-            <div class="filters">
-                <select class="filter-select" id="fl-area" onchange="renderList()">
-                    <option value="">All areas</option>
-                    <option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option>
-                </select>
-                <select class="filter-select" id="fl-pos" onchange="renderList()">
-                    <option value="">All positions</option>
-                    <option>CEO</option><option>CFO</option><option>OWNER</option><option>BARTENDER</option><option>F&amp;B MANAGER</option><option>MANAGER</option>
-                </select>
-                <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="renderList()" style="flex: 1; min-width:140px">
-            </div>
-            <div class="visit-list" id="visit-list"></div>
-        </div>
-
-    </div>
-
-    <div class="camera-modal" id="camera-modal">
-        <div class="camera-header" id="camera-header">
-            <span id="modal-photo-counter" style="color: #FFF; font-weight: 500; font-size: 14px; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px;">0 / 10</span>
-            <button class="btn-close-modal" onclick="stopCamera()">Done</button>
-        </div>
-        <div class="camera-body" id="camera-body">
-            <video id="camera-view" autoplay playsinline></video>
-        </div>
-        <div class="camera-footer" id="camera-footer">
-            <div class="camera-recent-thumb" id="camera-recent-thumb" onclick="openCameraGallery()" title="View Gallery"></div>
-            <button class="btn-capture-round" onclick="capturePhoto()"></button>
-            <div class="camera-spacer"></div>
-        </div>
-        <canvas id="camera-canvas" style="display: none;"></canvas>
-
-        <div class="camera-gallery" id="camera-gallery">
-            <div class="cg-header">
-                <button class="btn-close-modal" onclick="closeCameraGallery()">◀ Back to Camera</button>
-                <span style="color:white; font-size:14px; font-weight:500;">Gallery</span>
-                <div style="width:120px"></div>
-            </div>
-            <div class="cg-grid" id="cg-grid"></div>
-        </div>
-    </div>
-
-    <div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
-        <div class="detail-box">
-            <button class="detail-close" onclick="closeDetail()">✕</button>
-            <div id="detail-content"></div>
-        </div>
-    </div>
-
-    <div class="confirm-overlay" id="save-confirm-overlay" onclick="if(event.target===this)closeSaveConfirm()">
-        <div class="confirm-box" style="padding: 1.5rem; max-width: 480px;">
-            <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 16px; font-weight: 600;">Review Visit Details</h3>
-            <div id="save-confirm-text" style="margin-bottom: 1.5rem; text-align: left;"></div>
-            <div class="confirm-actions">
-                <button class="btn-secondary" onclick="closeSaveConfirm()">Edit</button>
-                <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="confirm-overlay" id="delete-confirm-overlay" onclick="if(event.target===this)closeDeleteRequest()">
-        <div class="confirm-box">
-            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Delete Request</h3>
-            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for delete request:</p>
-            <textarea id="delete-reason-input" rows="3" placeholder="e.g., Duplicated entry..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
-            <div class="confirm-actions">
-                <button class="btn-secondary" onclick="closeDeleteRequest()">Cancel</button>
-                <button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lb-img" src="" alt="Photo"></div>
-    <div class="toast" id="toast"></div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
-</body>
-
-</html>
+function openLightbox(src) { document.getElementById('lb-img').src = src; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) { return d; }
+function updateCount() { const el = document.getElementById('rec-count'); if (el) el.textContent = visits.length + ' records'; }
+function toast(msg, ok = true) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.style.background = ok ? 'var(--primary)' : 'var(--danger)'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3500); }
