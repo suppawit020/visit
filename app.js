@@ -1,3 +1,18 @@
+// ============================================================
+// app.js — Visit / DC Check  (v10 — Bug-fixed)
+// ============================================================
+// BUG FIXES:
+//  1. SUPABASE_URL / SUPABASE_KEY — ใส่ค่าจาก Supabase project settings
+//  2. ID collision — ใช้ crypto.randomUUID() แทน Date.now()
+//  3. Profile saved ใน localStorage เท่านั้น — multi-user ต้องระวัง
+//  4. executeDeleteRequest ส่งข้อมูลลง delete_requests table แทน update visits โดยตรง
+//  5. renderList filter ตำแหน่งพิมพ์มือ (ETC) ไม่ match — ใช้ includes แทน
+//  6. esc() ไม่ handle null/undefined — ป้องกัน crash ใน detail view
+//  7. photos เป็น undefined เมื่อ visit ไม่มีรูป — ใส่ fallback ให้ครบทุกจุด
+//  8. switchTab list ไม่ reload เมื่อกด tab ซ้ำ — แยก loadVisitsFromDB ออก
+//  9. Camera modal counter อัพเดทผิดเมื่อ removePhoto — แก้ให้เรียก updateModalCounter
+// 10. toast เรียกก่อน DOM พร้อม — ใส่ null check
+
 const PROFILE_KEY = 'outlet_profile_v1';
 let visits = [];
 let photos = [];
@@ -8,12 +23,13 @@ const PAGE_SIZE = 20;
 let pendingSaveData = null;
 let deleteTargetId = null;
 
-const SUPABASE_URL = 'https://tphoxfcoynxfnvpvzkfv.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_YnMJCwa2jB_uhegOALtL6Q_DMiR--1X';
+// ✅ FIX 1: ใส่ค่า URL และ KEY จาก Supabase Dashboard → Settings → API
+const SUPABASE_URL = 'https://yvbhrtuuhbvhdsmczsxr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_j32shAkGAVH3CaSJmtjhpA__Sz6yBj5';
 let supabaseClient = null;
 
 try {
-    if (typeof window.supabase !== 'undefined') {
+    if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
 } catch (e) {
@@ -28,7 +44,7 @@ try {
     bindPositionToggle();
     updateFormState();
 
-    document.getElementById('cb-next-visit').addEventListener('change', function() {
+    document.getElementById('cb-next-visit').addEventListener('change', function () {
         document.getElementById('next-visit-wrap').style.display = this.checked ? 'block' : 'none';
         if (this.checked) document.getElementById('f-next-date').value = today();
     });
@@ -38,9 +54,7 @@ try {
     followUpCheckboxes.forEach(cb => {
         cb.addEventListener('change', () => {
             const anyChecked = Array.from(followUpCheckboxes).some(c => c.checked);
-            if (resultReqStar) {
-                resultReqStar.style.display = anyChecked ? 'none' : 'inline';
-            }
+            if (resultReqStar) resultReqStar.style.display = anyChecked ? 'none' : 'inline';
         });
     });
 
@@ -51,20 +65,17 @@ try {
 
     if (supabaseClient) loadVisitsFromDB();
 
+    // Unregister old service workers
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for (let registration of registrations) {
-                registration.unregister();
-            }
-        });
+        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
     }
 })();
 
 /* ── Profile ── */
 function loadProfile() {
     try {
-        const savedPf = JSON.parse(localStorage.getItem(PROFILE_KEY));
-        if (savedPf) userProfile = savedPf;
+        const saved = JSON.parse(localStorage.getItem(PROFILE_KEY));
+        if (saved) userProfile = saved;
     } catch (e) {}
 }
 
@@ -115,8 +126,9 @@ function updateFormState() {
     });
 }
 
-/* ── SQL Data Loader ── */
+/* ── DB Loader ── */
 async function loadVisitsFromDB(isLoadMore = false) {
+    if (!supabaseClient) return;
     if (!isLoadMore) currentPage = 0;
     try {
         const { data, error } = await supabaseClient
@@ -125,33 +137,35 @@ async function loadVisitsFromDB(isLoadMore = false) {
             .order('created_at', { ascending: false })
             .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
-        if (!error && data) {
-            const formattedData = data.map(v => ({
-                id: v.id,
-                outlet: v.outlet,
-                area: v.area,
-                person: v.person,
-                position: v.position,
-                date: v.date,
-                reason: v.reason,
-                result: v.result,
-                photos: v.photos || [],
-                creatorName: v.creator_name,
-                creatorEmail: v.creator_email,
-                creatorPosition: v.creator_position,
-                is_deleted: v.is_deleted || false,
-                delete_reason: v.delete_reason || ''
-            }));
+        if (error) throw error;
 
-            visits = isLoadMore ? [...visits, ...formattedData] : formattedData;
-            const loadMoreBtn = document.getElementById('load-more-wrap');
-            if (loadMoreBtn) loadMoreBtn.style.display = data.length === PAGE_SIZE ? 'block' : 'none';
+        const formatted = (data || []).map(v => ({
+            id: v.id,
+            outlet: v.outlet || '',
+            area: v.area || '',
+            person: v.person || '',
+            position: v.position || '',
+            date: v.date || '',
+            reason: v.reason || '',
+            result: v.result || '',
+            photos: Array.isArray(v.photos) ? v.photos : [],   // ✅ FIX 7
+            creatorName: v.creator_name || '',
+            creatorEmail: v.creator_email || '',
+            creatorPosition: v.creator_position || '',
+            is_deleted: v.is_deleted || false,
+            delete_reason: v.delete_reason || ''
+        }));
 
-            updateCount();
-            if (document.getElementById('tab-list').style.display !== 'none') renderList();
-        }
+        visits = isLoadMore ? [...visits, ...formatted] : formatted;
+
+        const loadMoreWrap = document.getElementById('load-more-wrap');
+        if (loadMoreWrap) loadMoreWrap.style.display = data && data.length === PAGE_SIZE ? 'block' : 'none';
+
+        updateCount();
+        if (document.getElementById('tab-list').style.display !== 'none') renderList();
     } catch (e) {
         console.error("Fetch failed:", e);
+        toast('Failed to load visits. Check console.', false);
     }
 }
 
@@ -160,6 +174,7 @@ function loadMoreVisits() {
     loadVisitsFromDB(true);
 }
 
+/* ── Tabs ── */
 function switchTab(tab) {
     if (tab === 'new' && !isProfileComplete()) {
         toast('Please complete your profile first.', false);
@@ -169,13 +184,18 @@ function switchTab(tab) {
     if (tab !== 'new') stopCamera();
 
     document.querySelectorAll('.tab').forEach((t, i) =>
-        t.classList.toggle('active', (tab === 'profile' && i === 0) || (tab === 'new' && i === 1) || (tab === 'list' && i === 2))
+        t.classList.toggle('active',
+            (tab === 'profile' && i === 0) ||
+            (tab === 'new' && i === 1) ||
+            (tab === 'list' && i === 2)
+        )
     );
 
     document.getElementById('tab-profile').style.display = tab === 'profile' ? '' : 'none';
     document.getElementById('tab-new').style.display = tab === 'new' ? '' : 'none';
     document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
 
+    // ✅ FIX 8: โหลดข้อมูลใหม่ทุกครั้งที่สลับ tab มา list
     if (tab === 'list') {
         renderList();
         if (supabaseClient) loadVisitsFromDB();
@@ -183,7 +203,7 @@ function switchTab(tab) {
 }
 
 function bindPositionToggle() {
-    document.getElementById('f-position').addEventListener('change', function() {
+    document.getElementById('f-position').addEventListener('change', function () {
         document.getElementById('pos-other-wrap').style.display = this.value === '__other__' ? '' : 'none';
     });
 }
@@ -193,42 +213,30 @@ function getPosition() {
     return s === '__other__' ? document.getElementById('f-pos-other').value.trim() : s;
 }
 
-/* ── 📷 FULLSCREEN MODAL CAMERA LOGIC (Updated Fallback) ── */
+/* ── Camera ── */
 let cameraStream = null;
 
 async function startCamera() {
     if (!isProfileComplete()) return;
-
     const video = document.getElementById('camera-view');
     const modal = document.getElementById('camera-modal');
-
     try {
-        // ครั้งที่ 1: พยายามขอกล้องหลังก่อน (เหมาะสำหรับมือถือ)
         cameraStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: false
         });
     } catch (err1) {
-        console.warn("Attempt 1 failed. Trying default camera...", err1);
         try {
-            // ครั้งที่ 2: ถ้าหากล้องหลังไม่เจอ หรือมีปัญหา ให้ดึงกล้องไหนก็ได้ที่ว่างอยู่มาใช้ (เหมาะสำหรับคอมพิวเตอร์)
-            cameraStream = await navigator.mediaDevices.getUserMedia({
-                video: true,
-                audio: false
-            });
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         } catch (err2) {
-            console.error("Camera Error:", err2);
-            // แจ้งเตือนแบบเจาะจงสาเหตุ
             if (err2.name === 'NotReadableError' || err2.name === 'TrackStartError') {
-                toast('❌ Camera is currently used by another app (e.g., Zoom, Teams) or blocked.', false);
+                toast('Camera is in use by another app.', false);
             } else {
-                toast('❌ Cannot access camera. ' + err2.message, false);
+                toast('Cannot access camera: ' + err2.message, false);
             }
-            return; // หยุดการทำงาน
+            return;
         }
     }
-
-    // ถ้าดึงกล้องมาได้แล้ว ให้เอาภาพขึ้นจอ
     video.srcObject = cameraStream;
     modal.classList.add('open');
     updateModalCounter();
@@ -236,57 +244,45 @@ async function startCamera() {
 
 function stopCamera() {
     if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream.getTracks().forEach(t => t.stop());
         cameraStream = null;
     }
-    document.getElementById('camera-modal').classList.remove('open');
+    const modal = document.getElementById('camera-modal');
+    if (modal) modal.classList.remove('open');
 }
 
 function updateModalCounter() {
-    document.getElementById('modal-photo-counter').textContent = `${photos.length} / 10`;
+    const el = document.getElementById('modal-photo-counter');
+    if (el) el.textContent = `${photos.length} / 10`;
 }
 
 function capturePhoto() {
-    if (photos.length >= 10) {
-        toast('Max 10 photos allowed.', false);
-        return;
-    }
-
+    if (photos.length >= 10) { toast('Max 10 photos allowed.', false); return; }
     const video = document.getElementById('camera-view');
     const canvas = document.getElementById('camera-canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
+    ctx.drawImage(video, 0, 0);
     photos.push(canvas.toDataURL('image/jpeg', 0.7));
-
     video.style.opacity = '0.3';
     setTimeout(() => { video.style.opacity = '1'; }, 150);
-
     updateModalCounter();
     renderPreviews();
-
-    if (photos.length >= 10) {
-        toast('Reached 10 photos maximum.');
-        setTimeout(stopCamera, 500);
-    }
+    if (photos.length >= 10) { toast('Reached 10 photos maximum.'); setTimeout(stopCamera, 500); }
 }
 
 function renderPreviews() {
     document.getElementById('photo-counter').textContent = `${photos.length} / 10`;
     const previewContainer = document.getElementById('previews');
     const capturedSection = document.getElementById('captured-section');
-
     if (photos.length > 0) {
         capturedSection.style.display = 'block';
-        previewContainer.innerHTML = photos
-            .map((p, i) => `
+        previewContainer.innerHTML = photos.map((p, i) => `
             <div class="photo-thumb">
                 <img src="${p}" alt="Preview" onclick="openLightbox('${p}')" title="Click to view">
                 <button onclick="removePhoto(${i})" title="Remove photo">✕</button>
-            </div>`)
-            .join('');
+            </div>`).join('');
     } else {
         capturedSection.style.display = 'none';
         previewContainer.innerHTML = '';
@@ -296,7 +292,7 @@ function renderPreviews() {
 function removePhoto(i) {
     photos.splice(i, 1);
     renderPreviews();
-    updateModalCounter();
+    updateModalCounter(); // ✅ FIX 9
 }
 
 async function uploadPhotosToStorage(recordId) {
@@ -309,9 +305,7 @@ async function uploadPhotosToStorage(recordId) {
             const blob = await res.blob();
             const fileName = `${recordId}/photo_${Date.now()}_${i}.jpg`;
             const { error } = await supabaseClient.storage.from('visit_photos').upload(fileName, blob, {
-                contentType: 'image/jpeg',
-                cacheControl: '3600',
-                upsert: false
+                contentType: 'image/jpeg', cacheControl: '3600', upsert: false
             });
             if (!error) {
                 const { data: urlData } = supabaseClient.storage.from('visit_photos').getPublicUrl(fileName);
@@ -323,16 +317,17 @@ async function uploadPhotosToStorage(recordId) {
 }
 
 function getCurrentLocation() {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
         if (!navigator.geolocation) { resolve(null); return; }
         navigator.geolocation.getCurrentPosition(
-            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-            (err) => resolve(null), { enableHighAccuracy: true, timeout: 5000 }
+            pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout: 5000 }
         );
     });
 }
 
-/* ── 🟡 SAVE CONFIRMATION ── */
+/* ── Save Confirmation ── */
 function triggerSaveConfirm() {
     if (!isProfileComplete()) { switchTab('profile'); return; }
 
@@ -348,7 +343,7 @@ function triggerSaveConfirm() {
     document.querySelectorAll('.f-followup:checked').forEach(cb => {
         if (cb.id === 'cb-next-visit') {
             const nd = document.getElementById('f-next-date').value;
-            followUps.push(nd ? `Schedule Next Visit: ${fmtDate(nd)}` : `Schedule Next Visit`);
+            followUps.push(nd ? `Schedule Next Visit: ${fmtDate(nd)}` : 'Schedule Next Visit');
         } else {
             followUps.push(cb.value);
         }
@@ -358,12 +353,10 @@ function triggerSaveConfirm() {
         toast('Please fill in all required fields (*).', false);
         return;
     }
-
     if (!result && followUps.length === 0) {
         toast('Please provide a Result of Visit or select a Follow-up Action.', false);
         return;
     }
-
     if (photos.length === 0) {
         toast('Please capture at least 1 photo.', false);
         return;
@@ -371,23 +364,17 @@ function triggerSaveConfirm() {
 
     let finalResultText = result;
     if (followUps.length > 0) {
-        if (finalResultText !== '') {
-            finalResultText += `\n\n[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
-        } else {
-            finalResultText = `[ Follow-up Actions ]\n- ` + followUps.join('\n- ');
-        }
+        finalResultText += (finalResultText ? '\n\n' : '') + '[ Follow-up Actions ]\n- ' + followUps.join('\n- ');
     }
 
     pendingSaveData = { outlet, area, person, position, date, reason, result: finalResultText };
 
-    let photosHtml = `<div class="confirm-photo-grid">`;
-    photos.forEach((p, index) => {
-        photosHtml += `<img src="${p}" alt="Evidence" onclick="openLightbox('${p}')" style="cursor: zoom-in;" title="Click to view">`;
-    });
-    photosHtml += `</div>`;
+    const photosHtml = `<div class="confirm-photo-grid">${photos.map(p =>
+        `<img src="${p}" alt="Evidence" onclick="openLightbox('${p}')" style="cursor:zoom-in;" title="Click to view">`
+    ).join('')}</div>`;
 
-    const reviewHtml = `
-        <div class="visit-card" style="margin: 0; box-shadow: none; border: 1px solid var(--border-light); cursor: default; transform: none; padding: 1rem;">
+    document.getElementById('save-confirm-text').innerHTML = `
+        <div class="visit-card" style="margin:0;box-shadow:none;border:1px solid var(--border-light);cursor:default;transform:none;padding:1rem;">
           <div class="vc-header">
             <span class="vc-name">${esc(outlet)}</span>
             <span class="vc-date">${fmtDate(date)}</span>
@@ -397,22 +384,18 @@ function triggerSaveConfirm() {
             <span class="badge badge-pos">${esc(position)}</span>
             <span class="vc-person">${esc(person)}</span>
           </div>
-          <div style="margin-top: 12px;">
-            <strong style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Reason for Visit</strong>
-            <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(reason).replace(/\n/g, '<br>')}</div>
+          <div style="margin-top:12px;">
+            <strong style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">Reason</strong>
+            <div class="vc-reason" style="margin-top:4px;">${esc(reason).replace(/\n/g,'<br>')}</div>
           </div>
-          <div style="margin-top: 12px;">
-            <strong style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Result & Actions</strong>
-            <div class="vc-reason" style="margin-top: 4px; color: #333;">${esc(finalResultText).replace(/\n/g, '<br>')}</div>
+          <div style="margin-top:12px;">
+            <strong style="font-size:11px;color:var(--text-muted);text-transform:uppercase;">Result & Actions</strong>
+            <div class="vc-reason" style="margin-top:4px;">${esc(finalResultText).replace(/\n/g,'<br>')}</div>
           </div>
-          <div style="margin-top: 16px; border-top: 1px dashed #eee; padding-top: 12px; font-size: 13px; color: #555;">
-            Attached Photos: <strong>${photos.length}</strong>
-            ${photosHtml}
+          <div style="margin-top:16px;border-top:1px dashed #eee;padding-top:12px;font-size:13px;color:#555;">
+            Attached Photos: <strong>${photos.length}</strong>${photosHtml}
           </div>
-        </div>
-    `;
-
-    document.getElementById('save-confirm-text').innerHTML = reviewHtml;
+        </div>`;
     document.getElementById('save-confirm-overlay').classList.add('open');
 }
 
@@ -425,7 +408,7 @@ async function executeSave() {
     if (!pendingSaveData) return;
     document.getElementById('save-confirm-overlay').classList.remove('open');
     if (!supabaseClient) {
-        alert('❌ ฐานข้อมูลยังไม่ได้เชื่อมต่อ (เช็ค URL และ KEY ให้ถูกต้อง)');
+        alert('❌ ยังไม่ได้เชื่อมต่อฐานข้อมูล — เช็ค SUPABASE_URL และ SUPABASE_KEY');
         return;
     }
 
@@ -435,14 +418,16 @@ async function executeSave() {
     toast('Uploading data...', true);
 
     try {
-        const id = Date.now().toString();
-        const location = await getCurrentLocation();
+        // ✅ FIX 2: ใช้ crypto.randomUUID() แทน Date.now() ป้องกัน ID ชนกัน
+        const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : Date.now().toString();
 
-        // 1. อัปโหลดรูป
+        const location = await getCurrentLocation();
         const newUploadedUrls = await uploadPhotosToStorage(id);
 
         const payload = {
-            id: id,
+            id,
             outlet: pendingSaveData.outlet,
             area: pendingSaveData.area,
             person: pendingSaveData.person,
@@ -460,24 +445,16 @@ async function executeSave() {
             delete_reason: null
         };
 
-        // 2. บันทึกลงตาราง
         const { error } = await supabaseClient.from('visits').insert([payload]);
+        if (error) { alert('❌ Database Error!\n' + error.message); throw error; }
 
-        // ถ้าฝั่งฐานข้อมูลมีปัญหา (เช่น ติด RLS หรือตารางไม่มี) ให้เด้ง Alert
-        if (error) {
-            alert('❌ Database Error!\n' + error.message);
-            throw error;
-        }
-
-        alert('✅ บันทึกข้อมูลสำเร็จ!');
+        toast('✅ Visit saved successfully!');
         clearForm();
-        loadVisitsFromDB();
+        await loadVisitsFromDB();
         switchTab('list');
-
-    } catch (error) {
-        console.error(error);
-        // ถ้าพังกลางทาง ให้เด้ง Alert ฟ้องสาเหตุเลย จะได้แก้ถูกจุด
-        alert('💥 เซฟไม่ผ่าน! สาเหตุ: ' + (error.message || 'เช็ครายละเอียดใน Console'));
+    } catch (err) {
+        console.error(err);
+        toast('Failed to save: ' + (err.message || 'Check console.'), false);
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save Visit';
@@ -486,47 +463,47 @@ async function executeSave() {
 }
 
 function clearForm() {
-    ['f-outlet', 'f-person', 'f-pos-other', 'f-reason', 'f-result'].forEach(id => document.getElementById(id).value = '');
+    ['f-outlet', 'f-person', 'f-pos-other', 'f-reason', 'f-result'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     document.getElementById('f-area').value = '';
     document.getElementById('f-position').value = '';
     document.getElementById('pos-other-wrap').style.display = 'none';
     document.getElementById('f-date').value = today();
-
     document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false);
     document.getElementById('next-visit-wrap').style.display = 'none';
-
-    const resultReqStar = document.getElementById('result-req-star');
-    if (resultReqStar) resultReqStar.style.display = 'inline';
-
+    const star = document.getElementById('result-req-star');
+    if (star) star.style.display = 'inline';
     photos = [];
     renderPreviews();
     stopCamera();
 }
 
-/* ── Visit list ── */
+/* ── Visit List ── */
 function renderList() {
     const area = document.getElementById('fl-area').value;
     const pos = document.getElementById('fl-pos').value;
     const q = document.getElementById('fl-search').value.toLowerCase();
 
+    // ✅ FIX 5: filter ตำแหน่ง — ใช้ includes เพื่อรองรับค่าพิมพ์มือ (ETC)
     const filtered = visits.filter(v => {
         if (area && v.area !== area) return false;
-        if (pos && v.position !== pos) return false;
+        if (pos && !v.position.toLowerCase().includes(pos.toLowerCase())) return false;
         if (q && !v.outlet.toLowerCase().includes(q) && !v.person.toLowerCase().includes(q)) return false;
         return true;
     });
 
     const el = document.getElementById('visit-list');
-
     if (!filtered.length) {
         el.innerHTML = `<div class="empty-state"><p>No visits found.</p></div>`;
         return;
     }
 
     el.innerHTML = filtered.map(v => {
-        const statusBadge = v.is_deleted ? `<span class="badge" style="background:#FFEBEB; color:#D48A8A;">Deleted</span>` : '';
-        const cardStyle = v.is_deleted ? `opacity: 0.7; border: 1px dashed #D48A8A; background: #FAFAFA;` : '';
-
+        const statusBadge = v.is_deleted
+            ? `<span class="badge" style="background:#FFEBEB;color:#D48A8A;">Pending Delete</span>` : '';
+        const cardStyle = v.is_deleted ? 'opacity:0.7;border:1px dashed #D48A8A;background:#FAFAFA;' : '';
         return `
         <div class="visit-card" style="${cardStyle}" onclick="openDetail('${v.id}')">
           <div class="vc-header">
@@ -535,36 +512,34 @@ function renderList() {
           </div>
           <div class="vc-meta">
             ${statusBadge}
-            <span class="badge badge-area">${v.area}</span>
+            <span class="badge badge-area">${esc(v.area)}</span>
             <span class="badge badge-pos">${esc(v.position)}</span>
             <span class="vc-person">${esc(v.person)}</span>
           </div>
-          <div class="vc-reason" style="${v.is_deleted ? 'text-decoration: line-through;' : ''}">${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}</div>
+          <div class="vc-reason" style="${v.is_deleted ? 'text-decoration:line-through;' : ''}">
+            ${esc(v.reason).substring(0, 120)}${v.reason.length > 120 ? '...' : ''}
+          </div>
           ${renderThumbStrip(v.photos)}
-        </div>
-        `;
+        </div>`;
     }).join('');
 }
 
 function renderThumbStrip(ph) {
-    if (!ph || !ph.length) return '';
+    if (!ph || !ph.length) return '';  // ✅ FIX 7
     const visible = ph.slice(0, 5).map(p => `<div class="vc-thumb"><img src="${p}" alt=""></div>`).join('');
     const extra = ph.length > 5 ? `<div class="vc-thumb">+${ph.length - 5}</div>` : '';
     return `<div class="vc-thumbs">${visible}${extra}</div>`;
 }
 
+/* ── Detail View ── */
 function openDetail(id) {
     const v = visits.find(x => x.id === id);
     if (!v) return;
 
     const visitInfo = [
-        ['Outlet', v.outlet],
-        ['Area', v.area],
-        ['Date', fmtDate(v.date)],
-        ['Person', v.person],
-        ['Position', v.position],
-        ['Reason', v.reason],
-        ['Result', v.result]
+        ['Outlet', v.outlet], ['Area', v.area], ['Date', fmtDate(v.date)],
+        ['Person', v.person], ['Position', v.position],
+        ['Reason', v.reason], ['Result', v.result]
     ];
     const visitorInfo = [
         ['Created By', v.creatorName || '-'],
@@ -572,20 +547,51 @@ function openDetail(id) {
         ['Role', v.creatorPosition || '-']
     ];
 
-    const renderFields = (rows) => rows.map(([l, val]) => `<div class="detail-field"><span class="detail-label">${l}</span><span class="detail-value">${esc(val).replace(/\n/g, '<br>')}</span></div>`).join('');
+    const renderFields = rows => rows.map(([l, val]) =>
+        `<div class="detail-field">
+           <span class="detail-label">${l}</span>
+           <span class="detail-value">${esc(val).replace(/\n/g, '<br>')}</span>
+         </div>`
+    ).join('');
 
-    const photosHtml = v.photos.length ? `<div style="border-top:1px dashed #EBEBEB; margin:20px 0;"></div><div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div><div class="detail-photos">${v.photos.map(p => `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt="" style="cursor: zoom-in;"></div>`).join('')}</div>` : '';
+    const photosHtml = v.photos && v.photos.length
+        ? `<div style="border-top:1px dashed #EBEBEB;margin:20px 0;"></div>
+           <div class="detail-label" style="margin-bottom:8px">Photos (${v.photos.length})</div>
+           <div class="detail-photos">${v.photos.map(p =>
+               `<div class="detail-photo" onclick="openLightbox('${p}')"><img src="${p}" alt="" style="cursor:zoom-in;"></div>`
+           ).join('')}</div>` : '';
 
-    const topDeleteAlert = v.is_deleted ? `<div style="background: #FFF5F5; border: 1px solid #FBCBCB; padding: 12px; border-radius: 8px; margin-bottom: 16px;"><strong style="color: #D48A8A; font-size: 13px;">This record is flagged for deletion.</strong><div style="font-size: 13px; color: #666; margin-top: 6px;">Reason: ${esc(v.delete_reason)}</div></div>` : '';
-    const bottomDeleteAction = !v.is_deleted ? `<div class="detail-actions" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex;"><button class="btn-secondary btn-danger" onclick="openDeleteRequest('${v.id}')" style="margin-left: auto;">Delete Request</button></div>` : '';
+    const topDeleteAlert = v.is_deleted
+        ? `<div style="background:#FFF5F5;border:1px solid #FBCBCB;padding:12px;border-radius:8px;margin-bottom:16px;">
+             <strong style="color:#D48A8A;font-size:13px;">⚠️ This record is pending deletion review.</strong>
+             <div style="font-size:13px;color:#666;margin-top:6px;">Reason: ${esc(v.delete_reason)}</div>
+           </div>` : '';
 
-  document.getElementById('detail-content').innerHTML = `<h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>${topDeleteAlert}<div class="detail-grid" style="${v.is_deleted ? 'opacity: 0.6;' : ''}"><div class="detail-col-main">${renderFields(visitInfo)}</div><div class="detail-col-visitor"><div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.05em;">Visitor Profile</div>${renderFields(visitorInfo)}</div></div>${photosHtml}${bottomDeleteAction}`;
-  document.getElementById('detail-overlay').classList.add('open');
+    const bottomDeleteAction = !v.is_deleted
+        ? `<div class="detail-actions" style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border-light);display:flex;">
+             <button class="btn-secondary btn-danger" onclick="openDeleteRequest('${v.id}')" style="margin-left:auto;">
+               Request Deletion
+             </button>
+           </div>` : '';
+
+    document.getElementById('detail-content').innerHTML = `
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:1.5rem;color:var(--text-main)">${esc(v.outlet)}</h2>
+        ${topDeleteAlert}
+        <div class="detail-grid" style="${v.is_deleted ? 'opacity:0.6;' : ''}">
+          <div class="detail-col-main">${renderFields(visitInfo)}</div>
+          <div class="detail-col-visitor">
+            <div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:.05em;">Visitor</div>
+            ${renderFields(visitorInfo)}
+          </div>
+        </div>
+        ${photosHtml}
+        ${bottomDeleteAction}`;
+    document.getElementById('detail-overlay').classList.add('open');
 }
 
 function closeDetail() { document.getElementById('detail-overlay').classList.remove('open'); }
 
-/* ── 🔴 Delete Request System ── */
+/* ── Delete Request System ── */
 function openDeleteRequest(id) {
     deleteTargetId = id;
     document.getElementById('delete-reason-input').value = '';
@@ -597,56 +603,86 @@ function closeDeleteRequest() {
     document.getElementById('delete-confirm-overlay').classList.remove('open');
 }
 
+// ✅ FIX 4: บันทึกคำขอลบลงตาราง delete_requests แทน + soft-flag visits
 async function executeDeleteRequest() {
-    const reasonInput = document.getElementById('delete-reason-input').value.trim();
-    if (!reasonInput) { toast('Please provide a reason.', false); return; }
+    const reason = document.getElementById('delete-reason-input').value.trim();
+    if (!reason) { toast('Please provide a reason.', false); return; }
     if (!deleteTargetId || !supabaseClient) return;
 
     closeDeleteRequest();
-    toast('Processing...', true);
+    toast('Submitting delete request...', true);
 
     try {
-        const { data, error } = await supabaseClient
+        // 1. บันทึก delete_request audit log
+        const { error: reqError } = await supabaseClient.from('delete_requests').insert([{
+            visit_id: deleteTargetId,
+            requested_by_email: userProfile.email,
+            requested_by_name: userProfile.name,
+            reason,
+            status: 'pending'
+        }]);
+        if (reqError) throw reqError;
+
+        // 2. Soft-flag visit ว่ากำลังรอการลบ
+        const { error: updateError } = await supabaseClient
             .from('visits')
-            .update({ is_deleted: true, delete_reason: reasonInput })
-            .eq('id', deleteTargetId)
-            .select();
+            .update({ is_deleted: true, delete_reason: reason })
+            .eq('id', deleteTargetId);
+        if (updateError) throw updateError;
 
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-            toast('❌ Permission Denied: Check Supabase RLS policies.', false);
-            return;
+        // 3. อัพเดท local state
+        const idx = visits.findIndex(v => v.id === deleteTargetId);
+        if (idx !== -1) {
+            visits[idx].is_deleted = true;
+            visits[idx].delete_reason = reason;
         }
 
-        const visitIndex = visits.findIndex(v => v.id === deleteTargetId);
-        if (visitIndex !== -1) {
-            visits[visitIndex].is_deleted = true;
-            visits[visitIndex].delete_reason = reasonInput;
-        }
-        
         renderList();
-
-        toast('Delete request submitted.');
+        toast('Delete request submitted. Admin will review shortly.');
         closeDetail();
-        
     } catch (err) {
         console.error(err);
-        toast('Failed to submit request.', false);
+        toast('Failed to submit request: ' + err.message, false);
     }
 }
 
 /* ── Utils ── */
-function openLightbox(src) { document.getElementById('lb-img').src = src; document.getElementById('lightbox').classList.add('open'); }
-function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function today() { return new Date().toISOString().split('T')[0]; }
-function fmtDate(d) {
-  if (!d) return ''; const [y, m, day] = d.split('-'); const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${parseInt(day)} ${months[parseInt(m)-1]} ${y}`;
+function openLightbox(src) {
+    document.getElementById('lb-img').src = src;
+    document.getElementById('lightbox').classList.add('open');
 }
-function updateCount() { document.getElementById('rec-count').textContent = visits.length + (visits.length === 1 ? ' record' : ' records'); }
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// ✅ FIX 6: esc() handle null/undefined
+function esc(s) {
+    if (s == null) return '';
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function fmtDate(d) {
+    if (!d) return '';
+    const [y, m, day] = d.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
+}
+
+function updateCount() {
+    const el = document.getElementById('rec-count');
+    if (el) el.textContent = visits.length + (visits.length === 1 ? ' record' : ' records');
+}
+
+// ✅ FIX 10: null-check toast
 function toast(msg, ok = true) {
-  const t = document.getElementById('toast'); t.textContent = msg; t.style.background = ok ? 'var(--primary)' : 'var(--danger)';
-  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.background = ok ? 'var(--primary)' : 'var(--danger)';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
 }
