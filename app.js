@@ -24,8 +24,8 @@ let pendingSaveData = null;
 let deleteTargetId = null;
 
 // ✅ FIX 1: ใส่ค่า URL และ KEY จาก Supabase Dashboard → Settings → API
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL = 'sb_publishable_j32shAkGAVH3CaSJmtjhpA__Sz6yBj5';
+const SUPABASE_KEY = 'https://yvbhrtuuhbvhdsmczsxr.supabase.co';
 let supabaseClient = null;
 
 try {
