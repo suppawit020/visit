@@ -5,18 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checklist</title>
-
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
-
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
     <div class="app">
-
         <div class="header">
             <h1>Checklist</h1>
             <span class="rec-badge" id="rec-count">0 records</span>
@@ -63,12 +60,8 @@
                         <label>Area <span class="req">*</span></label>
                         <select id="f-area">
                             <option value="">Select area</option>
-                            <option>BKK</option>
-                            <option>NORTH</option>
-                            <option>NORTHEAST</option>
-                            <option>WEST</option>
-                            <option>EAST</option>
-                            <option>SOUTH</option>
+                            <option>BKK</option><option>NORTH</option><option>NORTHEAST</option>
+                            <option>WEST</option><option>EAST</option><option>SOUTH</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -79,13 +72,9 @@
                         <label>Their Position <span class="req">*</span></label>
                         <select id="f-position">
                             <option value="">Select position</option>
-                            <option>CEO</option>
-                            <option>CFO</option>
-                            <option>OWNER</option>
-                            <option>BARTENDER</option>
-                            <option>F&amp;B MANAGER</option>
-                            <option>MANAGER</option>
-                            <option value="__other__">ETC — Please Type</option>
+                            <option>CEO</option><option>CFO</option><option>OWNER</option>
+                            <option>BARTENDER</option><option>F&amp;B MANAGER</option>
+                            <option>MANAGER</option><option value="__other__">ETC — Please Type</option>
                         </select>
                     </div>
                     <div class="form-group full" id="pos-other-wrap" style="display:none">
@@ -113,9 +102,9 @@
                             <label class="cb-label"><input type="checkbox" class="f-followup" value="Call Back Later"> Call Back Later</label>
                             <label class="cb-label"><input type="checkbox" id="cb-next-visit" class="f-followup" value="Schedule Next Visit"> Schedule Next Visit</label>
                         </div>
-                        <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5; width: 100%; box-sizing: border-box; overflow: hidden;">
+                        <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5;">
                             <label style="font-size: 12px; color: var(--primary); display: block; margin-bottom: 6px;">Select Date for Next Visit:</label>
-                            <input type="date" id="f-next-date" lang="en-US" style="border-color: #B5CCBD; width: 100%; box-sizing: border-box; display: block; margin: 0;">
+                            <input type="date" id="f-next-date" lang="en-US" style="border-color: #B5CCBD; width: 100%;">
                         </div>
                     </div>
                 </div>
@@ -129,14 +118,10 @@
 
                 <div class="easy-camera-container">
                     <button class="btn-open-camera" id="btn-start-cam" onclick="startCamera()" type="button">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                            <circle cx="12" cy="13" r="4"></circle>
-                        </svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                         OPEN CAMERA
                     </button>
                     <p style="font-size: 12px; color: #888; margin-top: 12px;">Capture live photos directly from your device</p>
-
                     <div class="captured-section" id="captured-section" style="display: none;">
                         <div class="captured-title">Captured Photos (Click to view)</div>
                         <div class="photo-previews" id="previews"></div>
@@ -163,25 +148,33 @@
                 <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="renderList()" style="flex: 1; min-width:140px">
             </div>
             <div class="visit-list" id="visit-list"></div>
-            <div id="load-more-wrap" style="text-align: center; margin-top: 1rem; display: none;">
-                <button class="btn-secondary" onclick="loadMoreVisits()">Load More</button>
-            </div>
         </div>
 
     </div>
 
     <div class="camera-modal" id="camera-modal">
-        <div class="camera-header">
+        <div class="camera-header" id="camera-header">
             <span id="modal-photo-counter" style="color: #FFF; font-weight: 500; font-size: 14px; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px;">0 / 10</span>
             <button class="btn-close-modal" onclick="stopCamera()">Done</button>
         </div>
-        <div class="camera-body">
+        <div class="camera-body" id="camera-body">
             <video id="camera-view" autoplay playsinline></video>
         </div>
-        <div class="camera-footer">
+        <div class="camera-footer" id="camera-footer">
+            <div class="camera-recent-thumb" id="camera-recent-thumb" onclick="openCameraGallery()" title="View Gallery"></div>
             <button class="btn-capture-round" onclick="capturePhoto()"></button>
+            <div class="camera-spacer"></div>
         </div>
         <canvas id="camera-canvas" style="display: none;"></canvas>
+
+        <div class="camera-gallery" id="camera-gallery">
+            <div class="cg-header">
+                <button class="btn-close-modal" onclick="closeCameraGallery()">◀ Back to Camera</button>
+                <span style="color:white; font-size:14px; font-weight:500;">Gallery</span>
+                <div style="width:120px"></div>
+            </div>
+            <div class="cg-grid" id="cg-grid"></div>
+        </div>
     </div>
 
     <div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
@@ -206,22 +199,19 @@
         <div class="confirm-box">
             <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Delete Request</h3>
             <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for delete request:</p>
-            <textarea id="delete-reason-input" rows="3" placeholder="e.g., Duplicated entry, wrong outlet..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
+            <textarea id="delete-reason-input" rows="3" placeholder="e.g., Duplicated entry..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
             <div class="confirm-actions">
                 <button class="btn-secondary" onclick="closeDeleteRequest()">Cancel</button>
-                <button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete Request</button>
+                <button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete</button>
             </div>
         </div>
     </div>
 
-    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-        <img id="lb-img" src="" alt="Photo">
-    </div>
-
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lb-img" src="" alt="Photo"></div>
     <div class="toast" id="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=9"></script>
+    <script src="app.js"></script>
 </body>
 
 </html>
