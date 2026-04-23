@@ -24,8 +24,8 @@ let pendingSaveData = null;
 let deleteTargetId = null;
 
 // ✅ FIX 1: ใส่ค่า URL และ KEY จาก Supabase Dashboard → Settings → API
-const SUPABASE_URL = 'https://yvbhrtuuhbvhdsmczsxr.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_j32shAkGAVH3CaSJmtjhpA__Sz6yBj5';
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
 let supabaseClient = null;
 
 try {
@@ -609,13 +609,15 @@ async function executeDeleteRequest() {
     if (!reason) { toast('Please provide a reason.', false); return; }
     if (!deleteTargetId || !supabaseClient) return;
 
+    // ✅ snapshot ค่าก่อน closeDeleteRequest() จะ reset เป็น null
+    const targetId = deleteTargetId;
     closeDeleteRequest();
     toast('Submitting delete request...', true);
 
     try {
         // 1. บันทึก delete_request audit log
         const { error: reqError } = await supabaseClient.from('delete_requests').insert([{
-            visit_id: deleteTargetId,
+            visit_id: targetId,
             requested_by_email: userProfile.email,
             requested_by_name: userProfile.name,
             reason,
@@ -627,11 +629,11 @@ async function executeDeleteRequest() {
         const { error: updateError } = await supabaseClient
             .from('visits')
             .update({ is_deleted: true, delete_reason: reason })
-            .eq('id', deleteTargetId);
+            .eq('id', targetId);
         if (updateError) throw updateError;
 
         // 3. อัพเดท local state
-        const idx = visits.findIndex(v => v.id === deleteTargetId);
+        const idx = visits.findIndex(v => v.id === targetId);
         if (idx !== -1) {
             visits[idx].is_deleted = true;
             visits[idx].delete_reason = reason;
