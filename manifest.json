@@ -1,6 +1,6 @@
 {
-    "name": "Visit / DC Check",
-    "short_name": "DC Check",
+    "name": "Checklist",
+    "short_name": "Cl",
     "start_url": "./index.html",
     "display": "standalone",
     "background_color": "#F7F7F8",
