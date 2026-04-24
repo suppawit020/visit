@@ -15,7 +15,7 @@ let loggedInUser = null;
 const PROFILE_KEY  = 'outlet_profile_v1';
 const SESSION_KEY  = 'checklist_user_session';   
 const REMEMBER_KEY = 'checklist_user_remember';  
-const AUTOSAVE_KEY = 'checklist_autosave_v1'; // 🌟 คีย์สำหรับ Auto-save
+const AUTOSAVE_KEY = 'checklist_autosave_v1'; 
 const SUPABASE_URL = 'https://kthdrgmdppyaooudbiog.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_aCfFzE-lGDhV1oTqaSCXEQ_NTs6SAKr';
 let supabaseClient = null;
@@ -63,6 +63,22 @@ async function doUserLogin() {
     } catch (e) { errEl.textContent = 'Login failed: ' + e.message; errEl.style.display = 'block'; }
 }
 
+/* 🌟 ฟังก์ชันสลับแสดง/ซ่อน รหัสผ่าน */
+function togglePasswordVisibility() {
+    const passInput = document.getElementById('login-pass');
+    const eyeIcon = document.getElementById('eye-icon');
+    
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        // ไอคอนตาปิด (Eye-off)
+        eyeIcon.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>`;
+    } else {
+        passInput.type = 'password';
+        // ไอคอนตาเปิด (Eye)
+        eyeIcon.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
+    }
+}
+
 /* ── Logout ── */
 function doUserLogout() {
     sessionStorage.removeItem(SESSION_KEY);
@@ -83,6 +99,10 @@ function doUserLogout() {
     document.getElementById('login-pass').value = '';
     document.getElementById('login-remember').checked = false;
     document.getElementById('login-error').style.display = 'none';
+    
+    // รีเซ็ตรูปตากลับเป็นค่าเริ่มต้นตอน Logout ด้วย
+    document.getElementById('login-pass').type = 'password';
+    document.getElementById('eye-icon').innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>`;
 }
 
 /* ── Session check on load ── */
@@ -134,7 +154,6 @@ function initApp() {
         });
     }
 
-    // 🌟 ผูกฟังก์ชัน Auto-save และโหลดข้อมูลถ้าเคยเซฟไว้
     bindAutoSave();
     loadAutoSaveData();
 
@@ -282,7 +301,11 @@ function capturePhoto() {
     updateModalCounter();
     renderPreviews(); 
     updateMiniGalleryThumb(); 
-    saveAutoSaveData(); // 🌟 Auto-save รูป
+    saveAutoSaveData(); 
+
+    if (document.getElementById('m-photo-grid')) {
+        renderModalPhotos();
+    }
 
     if (photos.length >= 10) {
         toast('Reached 10 photos maximum.');
@@ -340,7 +363,7 @@ function removePhotoFromGallery(i) {
     photos.splice(i, 1);
     renderPreviews(); 
     updateModalCounter();
-    saveAutoSaveData(); // 🌟 Auto-save
+    saveAutoSaveData(); 
     if (photos.length === 0) {
         closeCameraGallery(); 
     } else {
@@ -358,7 +381,7 @@ function renderPreviews() {
         previewContainer.innerHTML = photos.map((p, i) => `
             <div class="photo-thumb">
                 <img src="${p}" onclick="openLightbox('${p}')">
-                <button onclick="removePhoto(${i})">✕</button>
+                <button type="button" onclick="removePhoto(${i})">✕</button>
             </div>`).join('');
     } else {
         capturedSection.style.display = 'none';
@@ -371,7 +394,7 @@ function removePhoto(i) {
     renderPreviews();
     updateModalCounter();
     updateMiniGalleryThumb();
-    saveAutoSaveData(); // 🌟 Auto-save
+    saveAutoSaveData(); 
 }
 
 /* ── AUTO-SAVE SYSTEM ── */
@@ -390,7 +413,6 @@ function bindAutoSave() {
 }
 
 function saveAutoSaveData() {
-    // ไม่ทำงานถ้าไม่ได้อยู่หน้าเพิ่มข้อมูล (ป้องกันบัคดึงข้อมูลข้ามแท็บ)
     if (document.getElementById('tab-new').style.display === 'none') return;
 
     const data = {
@@ -410,7 +432,6 @@ function saveAutoSaveData() {
     try {
         localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
     } catch (e) {
-        // หากรูปใหญ่เกินไป (โควต้า 5MB) ให้ยอมแพ้เรื่องเซฟรูป แต่เซฟแค่ข้อความก็พอ
         console.warn("Autosave storage full, saving text without photos.");
         data.photos = [];
         localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
@@ -458,7 +479,7 @@ function loadAutoSaveData() {
         }
         
         if (hasData) {
-            toast('Draft restored automatically.', true); // แจ้งเตือนเมื่อกู้ข้อมูลสำเร็จ
+            toast('Draft restored automatically.', true); 
         }
     } catch (e) { console.error("Failed to load autosave", e); }
 }
@@ -711,6 +732,21 @@ function enableModalEdit() {
                     <input type="date" id="m-next-date" value="${f.fNextDate || today()}" style="width: 100%; padding: 10px 14px; border: 1px solid #B5CCBD; border-radius: 6px; font-family: inherit; font-size: 14px; outline: none;">
                 </div>
             </div>
+            
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #EBEBEB;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 12px; color: #666; font-weight: 500;">Attached Photos (<span id="m-photo-count">${photos.length}</span>/10)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn-secondary" onclick="startCamera()" style="padding: 4px 12px; font-size: 11px; border-radius: 6px; border: 1px solid var(--primary); color: var(--primary); display: flex; align-items: center; gap: 4px;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                            Camera
+                        </button>
+                        <button type="button" class="btn-secondary" onclick="selectFromLibrary()" style="padding: 4px 12px; font-size: 11px; border-radius: 6px; border: 1px solid var(--primary); color: var(--primary);">+ Library</button>
+                    </div>
+                </div>
+                <div id="m-photo-grid" class="photo-previews"></div>
+            </div>
+
         </div>
     `;
 
@@ -719,6 +755,35 @@ function enableModalEdit() {
         <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
     `;
     document.getElementById('save-confirm-overlay').setAttribute('data-mode', 'edit');
+    
+    renderModalPhotos();
+}
+
+function renderModalPhotos() {
+    const grid = document.getElementById('m-photo-grid');
+    const countEl = document.getElementById('m-photo-count');
+    if (!grid) return;
+    
+    if (countEl) countEl.textContent = photos.length;
+    
+    if (photos.length > 0) {
+        grid.innerHTML = photos.map((p, i) => `
+            <div class="photo-thumb">
+                <img src="${p}" onclick="openLightbox('${p}')">
+                <button type="button" onclick="removeModalPhoto(${i})">✕</button>
+            </div>`).join('');
+    } else {
+        grid.innerHTML = `<div style="font-size: 12px; color: var(--danger); padding: 8px 0;">⚠️ No photos attached. Please add at least 1 photo.</div>`;
+    }
+}
+
+function removeModalPhoto(i) {
+    photos.splice(i, 1);
+    renderModalPhotos();
+    renderPreviews(); 
+    updateModalCounter();
+    updateMiniGalleryThumb();
+    saveAutoSaveData(); 
 }
 
 function closeSaveConfirm() { 
@@ -726,7 +791,6 @@ function closeSaveConfirm() {
     pendingSaveData = null; 
 }
 
-/* 🌟 ทำการดึงค่าใหม่ที่ผู้ใช้พิมพ์ใน Modal ก่อนเซฟ */
 async function executeSave() {
     if (!pendingSaveData) return;
 
@@ -736,14 +800,12 @@ async function executeSave() {
         pendingSaveData.date = document.getElementById('m-date').value;
         pendingSaveData.person = document.getElementById('m-person').value.trim();
 
-        // ดึงค่า Position จาก Dropdown
         const posSel = document.getElementById('m-position-sel').value;
         pendingSaveData.position = posSel === '__other__' ? document.getElementById('m-pos-other').value.trim() : posSel;
 
         pendingSaveData.reason = document.getElementById('m-reason').value.trim();
         const mResult = document.getElementById('m-result').value.trim();
 
-        // นำ Result และ Checkbox มารวมกันใหม่
         let mFollowUps = [];
         if (document.getElementById('m-cb-quotation').checked) mFollowUps.push('Send Quotation / Documents');
         if (document.getElementById('m-cb-call').checked) mFollowUps.push('Call Back Later');
@@ -759,7 +821,6 @@ async function executeSave() {
 
         pendingSaveData.result = mFinalResultText;
 
-        // อัปเดตข้อมูลดิบ เผื่อกดยกเลิกแล้วกด Edit ใหม่
         pendingSaveData.rawResult = mResult;
         pendingSaveData.rawFollowUps = {
             fQuotation: document.getElementById('m-cb-quotation').checked,
@@ -774,6 +835,11 @@ async function executeSave() {
         }
         if (!mResult && mFollowUps.length === 0) {
             toast('Please provide a Result or select a Follow-up.', false);
+            return;
+        }
+        
+        if (photos.length === 0) {
+            toast('Please add at least 1 photo before saving.', false);
             return;
         }
     }
@@ -809,7 +875,7 @@ function clearForm() {
     document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false); document.getElementById('next-visit-wrap').style.display = 'none';
     photos = []; renderPreviews(); stopCamera();
     
-    localStorage.removeItem(AUTOSAVE_KEY); // 🌟 เคลียร์ Auto-save เมื่อบันทึกสำเร็จหรือกด Clear
+    localStorage.removeItem(AUTOSAVE_KEY); 
 }
 
 /* ── Visit List & Details ── */
@@ -999,7 +1065,11 @@ async function handleLibrarySelection(input) {
     input.value = '';
     renderPreviews(); 
     updateModalCounter();
-    saveAutoSaveData(); // 🌟 Auto-save เมื่อเพิ่มรูปสำเร็จ
+    saveAutoSaveData(); 
+    
+    if (document.getElementById('m-photo-grid')) {
+        renderModalPhotos();
+    }
 }
 
 function fileToDataUrl(file) {
