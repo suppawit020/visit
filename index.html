@@ -12,7 +12,43 @@
 </head>
 
 <body>
-    <div class="app">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:2rem; background:var(--bg-color);">
+        <div style="width:100%; max-width:400px; background:#FFF; border-radius:20px; padding:2.5rem; box-shadow:0 8px 24px rgba(0,0,0,0.06); border:1px solid #F0F0F0;">
+            <div style="text-align:center; margin-bottom:2rem;">
+                <div style="width:56px; height:56px; background:#F0F4F1; border-radius:16px; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7C9082" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                </div>
+                <h2 style="font-size:20px; font-weight:600; color:#333; margin-bottom:4px;">Checklist</h2>
+                <p style="font-size:13px; color:#888;">Sign in to continue</p>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+                <div>
+                    <label style="font-size:13px; font-weight:500; color:#555; display:block; margin-bottom:6px;">Username</label>
+                    <input type="text" id="login-username" placeholder="your_username"
+                        style="width:100%; padding:10px 14px; font-size:14px; border:1px solid #EBEBEB; border-radius:8px; background:#FAFAFA; outline:none; font-family:inherit;"
+                        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+                </div>
+                <div>
+                    <label style="font-size:13px; font-weight:500; color:#555; display:block; margin-bottom:6px;">Password</label>
+                    <input type="password" id="login-pass" placeholder="••••••••"
+                        style="width:100%; padding:10px 14px; font-size:14px; border:1px solid #EBEBEB; border-radius:8px; background:#FAFAFA; outline:none; font-family:inherit;"
+                        onkeydown="if(event.key==='Enter')doUserLogin()">
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+                    <input type="checkbox" id="login-remember" style="width:16px;height:16px;accent-color:#7C9082;cursor:pointer;">
+                    <label for="login-remember" style="font-size:13px;color:#666;cursor:pointer;">Remember me</label>
+                </div>
+                <div id="login-error" style="display:none; background:#FEF8F8; color:#D48A8A; padding:10px 14px; border-radius:8px; font-size:13px; border:1px solid #F0D0D0;"></div>
+                <button onclick="doUserLogin()" style="margin-top:4px; padding:12px; background:#7C9082; color:#FFF; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; font-family:inherit; transition:0.2s;" onmouseover="this.style.background='#677B6D'" onmouseout="this.style.background='#7C9082'">
+                    Sign In
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app" id="main-app" style="display:none;">
         <div class="header">
             <h1>Checklist</h1>
             <span class="rec-badge" id="rec-count">0 records</span>
@@ -28,30 +64,69 @@
             <div class="card">
                 <div class="section-title">My Profile</div>
                 <div class="form-grid">
-                    <div class="form-group full"><label>Real Name</label><input type="text" id="pf-name" placeholder="e.g. John Doe"></div>
-                    <div class="form-group full"><label>Email</label><input type="email" id="pf-email" placeholder="e.g. john@example.com"></div>
-                    <div class="form-group full"><label>Your Position</label><input type="text" id="pf-position" placeholder="e.g. Sales Executive"></div>
+                    <div class="form-group full">
+                        <label>Real Name</label>
+                        <input type="text" id="pf-name" placeholder="e.g. John Doe">
+                    </div>
+                    <div class="form-group full">
+                        <label>Email</label>
+                        <input type="email" id="pf-email" placeholder="e.g. john@example.com">
+                    </div>
+                    <div class="form-group full">
+                        <label>Your Position</label>
+                        <input type="text" id="pf-position" placeholder="e.g. Sales Executive">
+                    </div>
                 </div>
             </div>
-            <div class="form-actions"><button class="btn-primary" onclick="saveProfile()">Save Profile</button></div>
+
         </div>
 
         <div id="tab-new" style="display:none">
             <div class="card">
                 <div class="section-title">Visit Information</div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Outlet Name <span class="req">*</span></label><input type="text" id="f-outlet" placeholder="e.g. The Empire Bar"></div>
-                    <div class="form-group"><label>Area <span class="req">*</span></label>
-                        <select id="f-area"><option value="">Select area</option><option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option></select>
+                    <div class="form-group">
+                        <label>Outlet Name <span class="req">*</span></label>
+                        <input type="text" id="f-outlet" placeholder="e.g. The Empire Bar">
                     </div>
-                    <div class="form-group"><label>Person You Met <span class="req">*</span></label><input type="text" id="f-person" placeholder="Full name"></div>
-                    <div class="form-group"><label>Their Position <span class="req">*</span></label>
-                        <select id="f-position"><option value="">Select position</option><option>CEO</option><option>CFO</option><option>OWNER</option><option>BARTENDER</option><option>F&B MANAGER</option><option>MANAGER</option><option value="__other__">ETC — Please Type</option></select>
+                    <div class="form-group">
+                        <label>Area <span class="req">*</span></label>
+                        <select id="f-area">
+                            <option value="">Select area</option>
+                            <option>BKK</option><option>NORTH</option><option>NORTHEAST</option>
+                            <option>WEST</option><option>EAST</option><option>SOUTH</option>
+                        </select>
                     </div>
-                    <div class="form-group full" id="pos-other-wrap" style="display:none"><label>Specify Position <span class="req">*</span></label><input type="text" id="f-pos-other"></div>
-                    <div class="form-group"><label>Visit Date <span class="req">*</span></label><input type="date" id="f-date" lang="en-US"></div>
-                    <div class="form-group full"><label>Reason for Visit <span class="req">*</span></label><textarea id="f-reason" rows="2"></textarea></div>
-                    <div class="form-group full"><label>Result of Visit <span class="req" id="result-req-star">*</span></label><textarea id="f-result" rows="2"></textarea></div>
+                    <div class="form-group">
+                        <label>Person You Met <span class="req">*</span></label>
+                        <input type="text" id="f-person" placeholder="Full name">
+                    </div>
+                    <div class="form-group">
+                        <label>Their Position <span class="req">*</span></label>
+                        <select id="f-position">
+                            <option value="">Select position</option>
+                            <option>CEO</option><option>CFO</option><option>OWNER</option>
+                            <option>BARTENDER</option><option>F&amp;B MANAGER</option>
+                            <option>MANAGER</option><option value="__other__">ETC — Please Type</option>
+                        </select>
+                    </div>
+                    <div class="form-group full" id="pos-other-wrap" style="display:none">
+                        <label>Specify Position <span class="req">*</span></label>
+                        <input type="text" id="f-pos-other" placeholder="Enter position">
+                    </div>
+                    <div class="form-group">
+                        <label>Visit Date <span class="req">*</span></label>
+                        <input type="date" id="f-date" lang="en-US">
+                    </div>
+                    <div class="form-group full">
+                        <label>Reason for Visit <span class="req">*</span></label>
+                        <textarea id="f-reason" rows="2" placeholder="Purpose of this visit..."></textarea>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Result of Visit <span class="req" id="result-req-star">*</span></label>
+                        <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
+                    </div>
 
                     <div class="form-group full" style="margin-top: 8px;">
                         <label>Follow-up Actions <span style="color:var(--text-muted); font-weight:normal;">(Optional)</span></label>
@@ -69,62 +144,112 @@
             </div>
 
             <div class="card">
-                <div class="section-title" style="display: flex; justify-content: space-between;"><span>Live Evidence</span><span id="photo-counter" style="color: var(--primary); font-weight: 600;">0 / 10</span></div>
+                <div class="section-title" style="display: flex; justify-content: space-between;">
+                    <span>Live Evidence</span>
+                    <span id="photo-counter" style="color: var(--primary); font-weight: 600;">0 / 10</span>
+                </div>
+
                 <div class="easy-camera-container">
-                    <button class="btn-open-camera" id="btn-start-cam" onclick="startCamera()" type="button">OPEN CAMERA</button>
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <button class="btn-open-camera" id="btn-start-cam" onclick="startCamera()" type="button" style="margin: 0; padding: 12px 20px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                            CAMERA
+                        </button>
+                        <button class="btn-secondary" onclick="selectFromLibrary()" type="button" style="margin: 0; padding: 12px 20px; border-radius: 30px; display: flex; align-items: center; font-weight: 600; border: 2px solid var(--primary); color: var(--primary);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            LIBRARY
+                        </button>
+                    </div>
+                    <input type="file" id="library-input" accept="image/*" multiple style="display: none;" onchange="handleLibrarySelection(this)">
+                    <p style="font-size: 12px; color: #888; margin-top: 12px;">Capture or select up to 10 photos</p>
                     <div class="captured-section" id="captured-section" style="display: none;">
+                        <div class="captured-title">Captured Photos (Click to view)</div>
                         <div class="photo-previews" id="previews"></div>
                     </div>
                 </div>
             </div>
-            <div class="form-actions"><button class="btn-secondary" onclick="clearForm()">Clear</button><button class="btn-primary" id="btn-save" onclick="triggerSaveConfirm()">Save Visit</button></div>
+
+            <div class="form-actions">
+                <button class="btn-secondary" id="btn-clear" onclick="clearForm()">Clear</button>
+                <button class="btn-primary" id="btn-save" onclick="triggerSaveConfirm()">Save Visit</button>
+            </div>
         </div>
 
         <div id="tab-list" style="display:none">
             <div class="filters">
-                <select class="filter-select" id="fl-area" onchange="renderList()"><option value="">All areas</option><option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option></select>
-                <select class="filter-select" id="fl-pos" onchange="renderList()"><option value="">All positions</option><option>CEO</option><option>MANAGER</option></select>
+                <select class="filter-select" id="fl-area" onchange="renderList()">
+                    <option value="">All areas</option>
+                    <option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option>
+                </select>
+                <select class="filter-select" id="fl-pos" onchange="renderList()">
+                    <option value="">All positions</option>
+                    <option>CEO</option><option>CFO</option><option>OWNER</option><option>BARTENDER</option><option>F&amp;B MANAGER</option><option>MANAGER</option>
+                </select>
                 <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="renderList()" style="flex: 1; min-width:140px">
             </div>
             <div class="visit-list" id="visit-list"></div>
         </div>
+
     </div>
 
     <div class="camera-modal" id="camera-modal">
-        <div class="camera-header" id="camera-header"><span id="modal-photo-counter" style="color: #FFF; font-weight: 500; font-size: 14px; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px;">0 / 10</span><button class="btn-close-modal" onclick="stopCamera()">Done</button></div>
-        <div class="camera-body" id="camera-body"><video id="camera-view" autoplay playsinline></video></div>
+        <div class="camera-header" id="camera-header">
+            <span id="modal-photo-counter" style="color: #FFF; font-weight: 500; font-size: 14px; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px;">0 / 10</span>
+            <button class="btn-close-modal" onclick="stopCamera()">Done</button>
+        </div>
+        <div class="camera-body" id="camera-body">
+            <video id="camera-view" autoplay playsinline></video>
+        </div>
         <div class="camera-footer" id="camera-footer">
-            <div class="camera-recent-thumb" id="camera-recent-thumb" onclick="openCameraGallery()"></div>
+            <div class="camera-recent-thumb" id="camera-recent-thumb" onclick="openCameraGallery()" title="View Gallery"></div>
             <button class="btn-capture-round" onclick="capturePhoto()"></button>
             <div class="camera-spacer"></div>
         </div>
         <canvas id="camera-canvas" style="display: none;"></canvas>
+
         <div class="camera-gallery" id="camera-gallery">
-            <div class="cg-header"><button class="btn-close-modal" onclick="closeCameraGallery()">◀ Back</button></div>
+            <div class="cg-header">
+                <button class="btn-close-modal" onclick="closeCameraGallery()">◀ Back to Camera</button>
+                <span style="color:white; font-size:14px; font-weight:500;">Gallery</span>
+                <div style="width:120px"></div>
+            </div>
             <div class="cg-grid" id="cg-grid"></div>
         </div>
     </div>
 
     <div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
-        <div class="detail-box"><button class="detail-close" onclick="closeDetail()">✕</button>
+        <div class="detail-box">
+            <button class="detail-close" onclick="closeDetail()">✕</button>
             <div id="detail-content"></div>
         </div>
     </div>
+
     <div class="confirm-overlay" id="save-confirm-overlay" onclick="if(event.target===this)closeSaveConfirm()">
         <div class="confirm-box" style="padding: 1.5rem; max-width: 480px;">
             <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 16px; font-weight: 600;">Review Visit Details</h3>
             <div id="save-confirm-text" style="margin-bottom: 1.5rem; text-align: left;"></div>
-            <div class="confirm-actions"><button class="btn-secondary" onclick="closeSaveConfirm()">Edit</button><button class="btn-primary" onclick="executeSave()">Confirm & Save</button></div>
+            <div class="confirm-actions">
+                <button class="btn-secondary" onclick="closeSaveConfirm()">Edit</button>
+                <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
+            </div>
         </div>
     </div>
+
     <div class="confirm-overlay" id="delete-confirm-overlay" onclick="if(event.target===this)closeDeleteRequest()">
         <div class="confirm-box">
-            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Delete Request</h3><textarea id="delete-reason-input" rows="3" placeholder="Reason for delete request..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
-            <div class="confirm-actions"><button class="btn-secondary" onclick="closeDeleteRequest()">Cancel</button><button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete</button></div>
+            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Delete Request</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for delete request:</p>
+            <textarea id="delete-reason-input" rows="3" placeholder="e.g., Duplicated entry..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
+            <div class="confirm-actions">
+                <button class="btn-secondary" onclick="closeDeleteRequest()">Cancel</button>
+                <button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete</button>
+            </div>
         </div>
     </div>
+
     <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lb-img" src="" alt="Photo"></div>
     <div class="toast" id="toast"></div>
+    </div><!-- end #main-app -->
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
