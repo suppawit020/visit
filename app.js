@@ -5,16 +5,17 @@
 let cameraStream = null;
 let visits = [];
 let photos = [];
-let userProfile = { name: '', email: '', position: '' };
+let userProfile = { name: '', email: '', position: '', avatar: '' };
 let currentPage = 0;
 const PAGE_SIZE = 20;
 let pendingSaveData = null;
 let deleteTargetId = null;
-let loggedInUser = null; // เก็บ user object ที่ login แล้ว
+let loggedInUser = null; 
 
 const PROFILE_KEY  = 'outlet_profile_v1';
-const SESSION_KEY  = 'checklist_user_session';   // sessionStorage (ปิดแท็บหาย)
-const REMEMBER_KEY = 'checklist_user_remember';  // localStorage (ถาวร)
+const SESSION_KEY  = 'checklist_user_session';   
+const REMEMBER_KEY = 'checklist_user_remember';  
+const AUTOSAVE_KEY = 'checklist_autosave_v1'; // 🌟 คีย์สำหรับ Auto-save
 const SUPABASE_URL = 'https://kthdrgmdppyaooudbiog.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_aCfFzE-lGDhV1oTqaSCXEQ_NTs6SAKr';
 let supabaseClient = null;
@@ -54,7 +55,8 @@ async function doUserLogin() {
             localStorage.removeItem(REMEMBER_KEY);
         }
 
-        userProfile = { name: data.name, email: data.username, position: data.position };
+        const localProfile = JSON.parse(localStorage.getItem(PROFILE_KEY)) || {};
+        userProfile = { name: data.name, email: data.username, position: data.position, avatar: localProfile.avatar || '' };
         localStorage.setItem(PROFILE_KEY, JSON.stringify(userProfile));
 
         showMainApp();
@@ -67,9 +69,14 @@ function doUserLogout() {
     localStorage.removeItem(REMEMBER_KEY);
     localStorage.removeItem(PROFILE_KEY);
     loggedInUser = null;
-    userProfile  = { name: '', email: '', position: '' };
+    userProfile  = { name: '', email: '', position: '', avatar: '' };
     visits = []; photos = [];
     stopCamera();
+    
+    document.getElementById('profile-menu-wrap').style.display = 'none';
+    document.getElementById('profile-dropdown').classList.remove('show');
+    loadAvatarUI();
+    
     document.getElementById('main-app').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-username').value = '';
@@ -86,8 +93,11 @@ function checkSession() {
         const data = JSON.parse(raw);
         if (!data?.id) return false;
         loggedInUser = data;
-        userProfile  = { name: data.name, email: data.username, position: data.position };
+        
+        const localProfile = JSON.parse(localStorage.getItem(PROFILE_KEY)) || {};
+        userProfile  = { name: data.name, email: data.username, position: data.position, avatar: localProfile.avatar || '' };
         localStorage.setItem(PROFILE_KEY, JSON.stringify(userProfile));
+        
         showMainApp();
         return true;
     } catch (e) { return false; }
@@ -101,29 +111,19 @@ function showMainApp() {
 
 /* ── Init (เรียกหลัง login เท่านั้น) ── */
 function initApp() {
-    populateProfileForm();
     document.getElementById('f-date').value = today();
     bindPositionToggle();
     updateFormState();
 
-    ['pf-name', 'pf-email', 'pf-position'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.readOnly = true; el.style.background = '#F5F5F5'; el.style.color = '#888'; }
-    });
+    document.getElementById('profile-menu-wrap').style.display = 'block';
+    const initial = (loggedInUser?.name || 'U').charAt(0).toUpperCase();
+    document.getElementById('avatar-small-text').textContent = initial;
+    document.getElementById('avatar-text').textContent = initial;
+    document.getElementById('pd-name').textContent = loggedInUser?.name || '';
+    document.getElementById('pd-email').textContent = loggedInUser?.username || '';
+    document.getElementById('pd-position').textContent = loggedInUser?.position || '';
 
-    // แสดงชื่อ user + ปุ่ม logout ใน header
-    const hdr = document.querySelector('.header');
-    if (hdr && !document.getElementById('user-logout-btn')) {
-        const userInfo = document.createElement('div');
-        userInfo.style.cssText = 'display:flex;align-items:center;gap:10px;';
-        userInfo.innerHTML = `
-            <span style="font-size:13px;color:var(--text-muted);">Hi, <strong style="color:var(--text-main);">${esc(loggedInUser?.name || '')}</strong></span>
-            <button id="user-logout-btn" onclick="doUserLogout()"
-                style="padding:6px 14px;background:#FFF;border:1px solid var(--border-light);border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--danger);">
-                Logout
-            </button>`;
-        hdr.appendChild(userInfo);
-    }
+    loadAvatarUI();
 
     const cbNext = document.getElementById('cb-next-visit');
     if (cbNext && !cbNext._bound) {
@@ -134,29 +134,17 @@ function initApp() {
         });
     }
 
+    // 🌟 ผูกฟังก์ชัน Auto-save และโหลดข้อมูลถ้าเคยเซฟไว้
+    bindAutoSave();
+    loadAutoSaveData();
+
     switchTab('new');
     if (supabaseClient) { loadVisitsFromDB(); setupRealtime(); }
 }
 
 window.addEventListener('DOMContentLoaded', () => { checkSession(); });
 
-/* ── Profile ── */
-function loadProfile() {
-    try { const saved = JSON.parse(localStorage.getItem(PROFILE_KEY)); if (saved) userProfile = saved; } catch (e) {}
-}
-
-function populateProfileForm() {
-    document.getElementById('pf-name').value = userProfile.name || '';
-    document.getElementById('pf-email').value = userProfile.email || '';
-    document.getElementById('pf-position').value = userProfile.position || '';
-}
-
 function isProfileComplete() { return userProfile.name !== '' && userProfile.email !== '' && userProfile.position !== ''; }
-
-function saveProfile() {
-    // Profile ถูก lock จาก DB — แสดงข้อความแจ้ง
-    toast('Profile is managed by Admin. Contact admin to update.', false);
-}
 
 function updateFormState() {
     const isComplete = isProfileComplete();
@@ -174,7 +162,6 @@ async function loadVisitsFromDB(isLoadMore = false) {
     if (!supabaseClient) return;
     if (!isLoadMore) currentPage = 0;
     try {
-        // ดึง visits + delete_requests พร้อมกัน โดยเพิ่มการเรียงลำดับ request (ascending: true)
         const [visitsRes, reqsRes] = await Promise.all([
             supabaseClient.from('visits').select('*').order('created_at', { ascending: false }).range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1),
             supabaseClient.from('delete_requests').select('visit_id, status, created_at').order('created_at', { ascending: true })
@@ -182,12 +169,11 @@ async function loadVisitsFromDB(isLoadMore = false) {
 
         if (visitsRes.error) throw visitsRes.error;
 
-        // map request status (ตัวที่ใหม่ที่สุดจะทับตัวเก่าอัตโนมัติ)
         const reqMap = {};
         (reqsRes.data || []).forEach(r => { reqMap[r.visit_id] = r.status; });
 
         const formatted = (visitsRes.data || []).map(v => {
-            const reqStatus = reqMap[v.id]; // 'pending' | 'approved' | 'rejected' | null
+            const reqStatus = reqMap[v.id]; 
             return {
                 id: v.id,
                 outlet: v.outlet || '',
@@ -230,16 +216,11 @@ function setupRealtime() {
 
 /* ── Tabs ── */
 function switchTab(tab) {
-    if (tab === 'new' && !isProfileComplete()) {
-        toast('Please complete your profile first.', false);
-        tab = 'profile';
-    }
     if (tab !== 'new') stopCamera();
 
     document.querySelectorAll('.tab').forEach((t, i) =>
-        t.classList.toggle('active', (tab === 'profile' && i === 0) || (tab === 'new' && i === 1) || (tab === 'list' && i === 2))
+        t.classList.toggle('active', (tab === 'new' && i === 0) || (tab === 'list' && i === 1))
     );
-    document.getElementById('tab-profile').style.display = tab === 'profile' ? '' : 'none';
     document.getElementById('tab-new').style.display = tab === 'new' ? '' : 'none';
     document.getElementById('tab-list').style.display = tab === 'list' ? '' : 'none';
 
@@ -280,7 +261,7 @@ function stopCamera() {
         cameraStream = null;
     }
     document.getElementById('camera-modal').classList.remove('open');
-    closeCameraGallery(); // ปิดแกลลอรี่เผื่อเปิดค้างไว้
+    closeCameraGallery(); 
 }
 
 function capturePhoto() {
@@ -295,13 +276,13 @@ function capturePhoto() {
     const newPhotoUrl = canvas.toDataURL('image/jpeg', 0.7);
     photos.push(newPhotoUrl);
 
-    // Flash effect
     video.style.opacity = '0.3';
     setTimeout(() => { video.style.opacity = '1'; }, 150);
 
     updateModalCounter();
-    renderPreviews(); // อัปเดตในหน้าฟอร์มหลัก
-    updateMiniGalleryThumb(); // อัปเดตรูปมุมซ้ายล่าง
+    renderPreviews(); 
+    updateMiniGalleryThumb(); 
+    saveAutoSaveData(); // 🌟 Auto-save รูป
 
     if (photos.length >= 10) {
         toast('Reached 10 photos maximum.');
@@ -328,7 +309,6 @@ function updateMiniGalleryThumb() {
 /* ── CAMERA MINI-GALLERY (NEW) ── */
 function openCameraGallery() {
     if (photos.length === 0) return;
-    // ซ่อนกล้อง โชว์แกลลอรี่
     document.getElementById('camera-header').style.display = 'none';
     document.getElementById('camera-body').style.display = 'none';
     document.getElementById('camera-footer').style.display = 'none';
@@ -339,7 +319,6 @@ function openCameraGallery() {
 }
 
 function closeCameraGallery() {
-    // กลับมาโชว์กล้อง
     document.getElementById('camera-header').style.display = 'flex';
     document.getElementById('camera-body').style.display = 'flex';
     document.getElementById('camera-footer').style.display = 'flex';
@@ -359,10 +338,11 @@ function renderCameraGallery() {
 
 function removePhotoFromGallery(i) {
     photos.splice(i, 1);
-    renderPreviews(); // อัปเดตในฟอร์มหลักด้วย
+    renderPreviews(); 
     updateModalCounter();
+    saveAutoSaveData(); // 🌟 Auto-save
     if (photos.length === 0) {
-        closeCameraGallery(); // ถ้ารูปหมดแล้ว ให้กลับไปหน้ากล้อง
+        closeCameraGallery(); 
     } else {
         renderCameraGallery();
     }
@@ -391,9 +371,99 @@ function removePhoto(i) {
     renderPreviews();
     updateModalCounter();
     updateMiniGalleryThumb();
+    saveAutoSaveData(); // 🌟 Auto-save
 }
 
-/* ── SAVE SYSTEM ── */
+/* ── AUTO-SAVE SYSTEM ── */
+function bindAutoSave() {
+    const inputs = ['f-outlet', 'f-area', 'f-person', 'f-position', 'f-pos-other', 'f-date', 'f-reason', 'f-result', 'f-next-date'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', saveAutoSaveData);
+            el.addEventListener('change', saveAutoSaveData);
+        }
+    });
+    document.querySelectorAll('.f-followup').forEach(cb => {
+        cb.addEventListener('change', saveAutoSaveData);
+    });
+}
+
+function saveAutoSaveData() {
+    // ไม่ทำงานถ้าไม่ได้อยู่หน้าเพิ่มข้อมูล (ป้องกันบัคดึงข้อมูลข้ามแท็บ)
+    if (document.getElementById('tab-new').style.display === 'none') return;
+
+    const data = {
+        outlet: document.getElementById('f-outlet').value,
+        area: document.getElementById('f-area').value,
+        person: document.getElementById('f-person').value,
+        position: document.getElementById('f-position').value,
+        posOther: document.getElementById('f-pos-other').value,
+        date: document.getElementById('f-date').value,
+        reason: document.getElementById('f-reason').value,
+        result: document.getElementById('f-result').value,
+        followups: Array.from(document.querySelectorAll('.f-followup')).map(cb => cb.checked),
+        nextDate: document.getElementById('f-next-date').value,
+        photos: photos
+    };
+
+    try {
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    } catch (e) {
+        // หากรูปใหญ่เกินไป (โควต้า 5MB) ให้ยอมแพ้เรื่องเซฟรูป แต่เซฟแค่ข้อความก็พอ
+        console.warn("Autosave storage full, saving text without photos.");
+        data.photos = [];
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    }
+}
+
+function loadAutoSaveData() {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return;
+    try {
+        const data = JSON.parse(raw);
+        let hasData = false;
+
+        if (data.outlet) { document.getElementById('f-outlet').value = data.outlet; hasData = true; }
+        if (data.area) { document.getElementById('f-area').value = data.area; hasData = true; }
+        if (data.person) { document.getElementById('f-person').value = data.person; hasData = true; }
+        if (data.position) {
+            document.getElementById('f-position').value = data.position;
+            document.getElementById('pos-other-wrap').style.display = data.position === '__other__' ? 'block' : 'none';
+            hasData = true;
+        }
+        if (data.posOther) { document.getElementById('f-pos-other').value = data.posOther; hasData = true; }
+        if (data.date) { document.getElementById('f-date').value = data.date; hasData = true; }
+        if (data.reason) { document.getElementById('f-reason').value = data.reason; hasData = true; }
+        if (data.result) { document.getElementById('f-result').value = data.result; hasData = true; }
+
+        if (data.followups && data.followups.length > 0) {
+            const cbs = document.querySelectorAll('.f-followup');
+            cbs.forEach((cb, i) => {
+                cb.checked = data.followups[i];
+                if (cb.checked) hasData = true;
+                if (cb.id === 'cb-next-visit') {
+                    document.getElementById('next-visit-wrap').style.display = cb.checked ? 'block' : 'none';
+                }
+            });
+        }
+        if (data.nextDate) { document.getElementById('f-next-date').value = data.nextDate; hasData = true; }
+
+        if (data.photos && data.photos.length > 0) {
+            photos = data.photos;
+            renderPreviews();
+            updateModalCounter();
+            updateMiniGalleryThumb();
+            hasData = true;
+        }
+        
+        if (hasData) {
+            toast('Draft restored automatically.', true); // แจ้งเตือนเมื่อกู้ข้อมูลสำเร็จ
+        }
+    } catch (e) { console.error("Failed to load autosave", e); }
+}
+
+/* ── SAVE SYSTEM & UX VALIDATION ── */
 async function uploadPhotosToStorage(recordId) {
     let uploadedUrls = [];
     if (!supabaseClient) return uploadedUrls;
@@ -424,7 +494,76 @@ function getCurrentLocation() {
 }
 
 function triggerSaveConfirm() {
-    if (!isProfileComplete()) { switchTab('profile'); return; }
+    if (!isProfileComplete()) { toast('Please complete profile first.', false); return; }
+
+    const requiredFields = [
+        { id: 'f-outlet', name: 'Outlet Name' },
+        { id: 'f-area', name: 'Area' },
+        { id: 'f-person', name: 'Person You Met' },
+        { id: 'f-position', name: 'Their Position' }
+    ];
+
+    const posEl = document.getElementById('f-position');
+    if (posEl && posEl.value === '__other__') {
+        requiredFields.push({ id: 'f-pos-other', name: 'Specify Position' });
+    }
+
+    requiredFields.push({ id: 'f-date', name: 'Visit Date' });
+    requiredFields.push({ id: 'f-reason', name: 'Reason for Visit' });
+
+    for (const field of requiredFields) {
+        const el = document.getElementById(field.id);
+        if (!el || !el.value.trim()) {
+            toast(`Please fill in: ${field.name}`, false);
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+            el.focus(); 
+            el.classList.add('error-highlight'); 
+            setTimeout(() => el.classList.remove('error-highlight'), 2500);
+            return;
+        }
+    }
+
+    let followUps = [];
+    let fQuotation = false, fCall = false;
+    document.querySelectorAll('.f-followup').forEach(cb => {
+        if (cb.value === 'Send Quotation / Documents') fQuotation = cb.checked;
+        if (cb.value === 'Call Back Later') fCall = cb.checked;
+        
+        if (cb.id === 'cb-next-visit') {
+            if (cb.checked) {
+                const nd = document.getElementById('f-next-date').value;
+                followUps.push(nd ? `Schedule Next Visit: ${fmtDate(nd)}` : 'Schedule Next Visit');
+            }
+        } else if (cb.checked) { 
+            followUps.push(cb.value); 
+        }
+    });
+    
+    const fNext = document.getElementById('cb-next-visit').checked;
+    const fNextDate = document.getElementById('f-next-date').value;
+
+    const resultEl = document.getElementById('f-result');
+    const result = resultEl.value.trim();
+
+    if (!result && followUps.length === 0) {
+        toast('Please provide a Result or select a Follow-up.', false);
+        resultEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        resultEl.focus();
+        resultEl.classList.add('error-highlight');
+        setTimeout(() => resultEl.classList.remove('error-highlight'), 2500);
+        return;
+    }
+
+    if (photos.length === 0) {
+        toast('Please capture at least 1 photo.', false);
+        const camSection = document.querySelector('.easy-camera-container');
+        if (camSection) {
+            camSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            camSection.classList.add('error-highlight');
+            setTimeout(() => camSection.classList.remove('error-highlight'), 2500);
+        }
+        return;
+    }
 
     const outlet = document.getElementById('f-outlet').value.trim();
     const area = document.getElementById('f-area').value;
@@ -432,25 +571,22 @@ function triggerSaveConfirm() {
     const position = getPosition();
     const date = document.getElementById('f-date').value;
     const reason = document.getElementById('f-reason').value.trim();
-    const result = document.getElementById('f-result').value.trim();
-
-    let followUps = [];
-    document.querySelectorAll('.f-followup:checked').forEach(cb => {
-        if (cb.id === 'cb-next-visit') {
-            const nd = document.getElementById('f-next-date').value;
-            followUps.push(nd ? `Schedule Next Visit: ${fmtDate(nd)}` : 'Schedule Next Visit');
-        } else { followUps.push(cb.value); }
-    });
-
-    if (!outlet || !area || !person || !position || !date || !reason) { toast('Please fill in all required fields (*).', false); return; }
-    if (!result && followUps.length === 0) { toast('Please provide a Result or select a Follow-up.', false); return; }
-    if (photos.length === 0) { toast('Please capture at least 1 photo.', false); return; }
 
     let finalResultText = result;
     if (followUps.length > 0) { finalResultText += (finalResultText ? '\n\n' : '') + '[ Follow-up Actions ]\n- ' + followUps.join('\n- '); }
 
-    pendingSaveData = { outlet, area, person, position, date, reason, result: finalResultText };
+    pendingSaveData = { 
+        outlet, area, person, position, date, reason, result: finalResultText,
+        rawResult: result,
+        rawFollowUps: { fQuotation, fCall, fNext, fNextDate }
+    };
 
+    renderConfirmModal();
+    document.getElementById('save-confirm-overlay').classList.add('open');
+}
+
+/* 🌟 โหมดพรีวิวข้อมูลก่อน Save (หน้าปกติ) */
+function renderConfirmModal() {
     const photosHtml = `<div class="confirm-photo-grid">${photos.map(p => `<img src="${p}" onclick="openLightbox('${p}')" style="cursor:zoom-in;">`).join('')}</div>`;
 
     document.getElementById('save-confirm-text').innerHTML = `
@@ -459,31 +595,31 @@ function triggerSaveConfirm() {
                 <div>
                     <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">Outlet & Location</div>
                     <div style="font-size: 16px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                        ${esc(outlet)}
-                        <span class="badge badge-area" style="font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">${area}</span>
+                        ${esc(pendingSaveData.outlet)}
+                        <span class="badge badge-area" style="font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">${pendingSaveData.area}</span>
                     </div>
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">Date</div>
-                    <div style="font-size: 13px; font-weight: 500; color: var(--primary);">${fmtDate(date)}</div>
+                    <div style="font-size: 13px; font-weight: 500; color: var(--primary);">${fmtDate(pendingSaveData.date)}</div>
                 </div>
             </div>
 
             <div style="margin-bottom: 16px;">
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">Met With</div>
                 <div style="font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                    <span style="color: #666;">${esc(person)}</span> <span class="badge badge-pos">${esc(position)}</span>
+                    <span style="color: #666;">${esc(pendingSaveData.person)}</span> <span class="badge badge-pos">${esc(pendingSaveData.position)}</span>
                 </div>
             </div>
 
             <div style="margin-bottom: 16px;">
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">Reason for Visit</div>
-                <div style="font-size: 14px; color: #444; line-height: 1.5; background: #FFF; padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEBEB;">${esc(reason).replace(/\n/g,'<br>')}</div>
+                <div style="font-size: 14px; color: #444; line-height: 1.5; background: #FFF; padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEBEB;">${esc(pendingSaveData.reason).replace(/\n/g,'<br>')}</div>
             </div>
 
             <div style="margin-bottom: 16px;">
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">Result & Actions</div>
-                <div style="font-size: 14px; color: #444; line-height: 1.5; background: #FFF; padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEBEB;">${esc(finalResultText).replace(/\n/g,'<br>')}</div>
+                <div style="font-size: 14px; color: #444; line-height: 1.5; background: #FFF; padding: 10px 14px; border-radius: 8px; border: 1px solid #EBEBEB;">${esc(pendingSaveData.result).replace(/\n/g,'<br>')}</div>
             </div>
 
             <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #EBEBEB;">
@@ -491,14 +627,157 @@ function triggerSaveConfirm() {
                 ${photosHtml}
             </div>
         </div>`;
-        
-    document.getElementById('save-confirm-overlay').classList.add('open');
+
+    document.getElementById('save-confirm-actions').innerHTML = `
+        <button class="btn-secondary" onclick="enableModalEdit()">Edit</button>
+        <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
+    `;
+    document.getElementById('save-confirm-overlay').setAttribute('data-mode', 'static');
 }
 
-function closeSaveConfirm() { document.getElementById('save-confirm-overlay').classList.remove('open'); pendingSaveData = null; }
+/* 🌟 โหมดฟอร์มแก้ไขข้อมูลภายใน Modal (ทำงานเมื่อกด Edit) */
+function enableModalEdit() {
+    const areas = ['BKK','NORTH','NORTHEAST','WEST','EAST','SOUTH'];
+    const areaOptions = areas.map(a => `<option value="${a}" ${a===pendingSaveData.area?'selected':''}>${a}</option>`).join('');
 
+    const positions = ['CEO', 'CFO', 'OWNER', 'BARTENDER', 'F&B MANAGER', 'MANAGER'];
+    const isOtherPos = pendingSaveData.position && !positions.includes(pendingSaveData.position);
+    const posOptions = positions.map(p => `<option value="${p}" ${p === pendingSaveData.position ? 'selected' : ''}>${p}</option>`).join('');
+    
+    const f = pendingSaveData.rawFollowUps || {};
+
+    document.getElementById('save-confirm-text').innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 12px; max-height: 65vh; overflow-y: auto; padding-right: 5px; text-align: left;">
+            <div style="background: #E8F0EA; color: #4A6352; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 500; margin-bottom: 4px; border: 1px solid #C3D9CB; display: flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                Edit mode active
+            </div>
+            <div>
+                <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 4px; display: block;">Outlet Name</label>
+                <input type="text" id="m-outlet" value="${esc(pendingSaveData.outlet)}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 4px; display: block;">Area</label>
+                    <select id="m-area" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; background: #FFF; font-size: 14px; outline: none;">
+                        ${areaOptions}
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 4px; display: block;">Date</label>
+                    <input type="date" id="m-date" value="${pendingSaveData.date}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 4px; display: block;">Met With</label>
+                    <input type="text" id="m-person" value="${esc(pendingSaveData.person)}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 4px; display: block;">Position</label>
+                    <select id="m-position-sel" onchange="document.getElementById('m-pos-other-wrap').style.display = this.value === '__other__' ? 'block' : 'none'" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; background: #FFF; font-size: 14px; outline: none;">
+                        <option value="">Select position</option>
+                        ${posOptions}
+                        <option value="__other__" ${isOtherPos ? 'selected' : ''}>ETC — Please Type</option>
+                    </select>
+                </div>
+            </div>
+            <div id="m-pos-other-wrap" style="display: ${isOtherPos ? 'block' : 'none'};">
+                <input type="text" id="m-pos-other" value="${isOtherPos ? esc(pendingSaveData.position) : ''}" placeholder="Specify Position" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+            </div>
+            <div>
+                <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 4px; display: block;">Reason for Visit</label>
+                <textarea id="m-reason" rows="2" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; resize: vertical;">${esc(pendingSaveData.reason)}</textarea>
+            </div>
+            <div>
+                <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 4px; display: block;">Result of Visit</label>
+                <textarea id="m-result" rows="2" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; resize: vertical;">${esc(pendingSaveData.rawResult || '')}</textarea>
+            </div>
+            <div style="margin-top: 4px; padding-bottom: 10px;">
+                <label style="font-size: 12px; color: #666; font-weight: 500; margin-bottom: 8px; display: block;">Follow-up Actions</label>
+                <div style="display: flex; flex-direction: column; gap: 10px; background: #FAFAFA; padding: 12px; border-radius: 8px; border: 1px solid #EBEBEB;">
+                    <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="m-cb-quotation" ${f.fQuotation ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: var(--primary);"> Send Quotation/Docs
+                    </label>
+                    <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="m-cb-call" ${f.fCall ? 'checked' : ''} style="width: 18px; height: 18px; accent-color: var(--primary);"> Call Back Later
+                    </label>
+                    <label style="font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="m-cb-next" ${f.fNext ? 'checked' : ''} onchange="document.getElementById('m-next-date-wrap').style.display = this.checked ? 'block' : 'none'" style="width: 18px; height: 18px; accent-color: var(--primary);"> Schedule Next Visit
+                    </label>
+                </div>
+                <div id="m-next-date-wrap" style="display: ${f.fNext ? 'block' : 'none'}; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5;">
+                    <label style="font-size: 11px; color: var(--primary); display: block; margin-bottom: 6px;">Select Date for Next Visit:</label>
+                    <input type="date" id="m-next-date" value="${f.fNextDate || today()}" style="width: 100%; padding: 10px 14px; border: 1px solid #B5CCBD; border-radius: 6px; font-family: inherit; font-size: 14px; outline: none;">
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('save-confirm-actions').innerHTML = `
+        <button class="btn-secondary" onclick="renderConfirmModal()" style="color: #666;">Cancel Edit</button>
+        <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
+    `;
+    document.getElementById('save-confirm-overlay').setAttribute('data-mode', 'edit');
+}
+
+function closeSaveConfirm() { 
+    document.getElementById('save-confirm-overlay').classList.remove('open'); 
+    pendingSaveData = null; 
+}
+
+/* 🌟 ทำการดึงค่าใหม่ที่ผู้ใช้พิมพ์ใน Modal ก่อนเซฟ */
 async function executeSave() {
     if (!pendingSaveData) return;
+
+    if (document.getElementById('save-confirm-overlay').getAttribute('data-mode') === 'edit') {
+        pendingSaveData.outlet = document.getElementById('m-outlet').value.trim();
+        pendingSaveData.area = document.getElementById('m-area').value;
+        pendingSaveData.date = document.getElementById('m-date').value;
+        pendingSaveData.person = document.getElementById('m-person').value.trim();
+
+        // ดึงค่า Position จาก Dropdown
+        const posSel = document.getElementById('m-position-sel').value;
+        pendingSaveData.position = posSel === '__other__' ? document.getElementById('m-pos-other').value.trim() : posSel;
+
+        pendingSaveData.reason = document.getElementById('m-reason').value.trim();
+        const mResult = document.getElementById('m-result').value.trim();
+
+        // นำ Result และ Checkbox มารวมกันใหม่
+        let mFollowUps = [];
+        if (document.getElementById('m-cb-quotation').checked) mFollowUps.push('Send Quotation / Documents');
+        if (document.getElementById('m-cb-call').checked) mFollowUps.push('Call Back Later');
+        if (document.getElementById('m-cb-next').checked) {
+            const nd = document.getElementById('m-next-date').value;
+            mFollowUps.push(nd ? `Schedule Next Visit: ${fmtDate(nd)}` : 'Schedule Next Visit');
+        }
+
+        let mFinalResultText = mResult;
+        if (mFollowUps.length > 0) {
+            mFinalResultText += (mFinalResultText ? '\n\n' : '') + '[ Follow-up Actions ]\n- ' + mFollowUps.join('\n- ');
+        }
+
+        pendingSaveData.result = mFinalResultText;
+
+        // อัปเดตข้อมูลดิบ เผื่อกดยกเลิกแล้วกด Edit ใหม่
+        pendingSaveData.rawResult = mResult;
+        pendingSaveData.rawFollowUps = {
+            fQuotation: document.getElementById('m-cb-quotation').checked,
+            fCall: document.getElementById('m-cb-call').checked,
+            fNext: document.getElementById('m-cb-next').checked,
+            fNextDate: document.getElementById('m-next-date').value
+        };
+
+        if (!pendingSaveData.outlet || !pendingSaveData.reason || !pendingSaveData.person || !pendingSaveData.position) {
+            toast('Please fill in required fields.', false);
+            return;
+        }
+        if (!mResult && mFollowUps.length === 0) {
+            toast('Please provide a Result or select a Follow-up.', false);
+            return;
+        }
+    }
+
     document.getElementById('save-confirm-overlay').classList.remove('open');
     if (!supabaseClient) { alert('❌ ยังไม่ได้เชื่อมต่อฐานข้อมูล'); return; }
 
@@ -529,6 +808,8 @@ function clearForm() {
     document.getElementById('f-area').value = ''; document.getElementById('f-position').value = ''; document.getElementById('pos-other-wrap').style.display = 'none'; document.getElementById('f-date').value = today();
     document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false); document.getElementById('next-visit-wrap').style.display = 'none';
     photos = []; renderPreviews(); stopCamera();
+    
+    localStorage.removeItem(AUTOSAVE_KEY); // 🌟 เคลียร์ Auto-save เมื่อบันทึกสำเร็จหรือกด Clear
 }
 
 /* ── Visit List & Details ── */
@@ -575,12 +856,10 @@ function renderThumbStrip(ph) {
     return `<div class="vc-thumbs">${ph.slice(0, 5).map(p => `<div class="vc-thumb"><img src="${p}"></div>`).join('')}${ph.length > 5 ? `<div class="vc-thumb">+${ph.length - 5}</div>` : ''}</div>`;
 }
 
-/* ── Visit List & Details ── */
 function openDetail(id) {
     const v = visits.find(x => x.id === id); if (!v) return;
     const isPending = v.req_status === 'pending';
     
-    // กำหนดข้อมูลที่จะแสดงในกล่อง
     const visitInfo = [
         ['Met With', `${v.person} (${v.position})`], 
         ['Reason for Visit', v.reason], 
@@ -648,12 +927,11 @@ async function executeDeleteRequest() {
         const { error: updateError } = await supabaseClient.from('visits').update({ is_deleted: true, delete_reason: reason }).eq('id', targetId);
         if (updateError) throw updateError;
         
-        // 🌟 อัปเดตข้อมูลบนหน้าจอ (ใส่ req_status เป็น pending เพื่อไม่ให้มันซ่อน)
         const idx = visits.findIndex(v => v.id === targetId);
         if (idx !== -1) { 
             visits[idx].is_deleted = true; 
             visits[idx].delete_reason = reason; 
-            visits[idx].req_status = 'pending'; // <-- เพิ่มบรรทัดนี้ครับ
+            visits[idx].req_status = 'pending'; 
         }
         renderList(); 
         toast('Delete request submitted.'); 
@@ -673,14 +951,14 @@ function updateCount() {
     const el = document.getElementById('rec-count'); 
     if (!el) return; 
     
-    // ให้นับเฉพาะข้อมูลที่สถานะยังไม่ถูก approve ให้ลบ
     const activeVisits = visits.filter(v => {
         if (v.req_status === 'approved' || (v.is_deleted === true && v.req_status !== 'pending')) return false;
         return true;
     });
 
     el.textContent = activeVisits.length + (activeVisits.length === 1 ? ' record' : ' records'); 
-}function toast(msg, ok = true) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.style.background = ok ? 'var(--primary)' : 'var(--danger)'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3500); }
+}
+function toast(msg, ok = true) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.style.background = ok ? 'var(--primary)' : 'var(--danger)'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3500); }
 
 /* ── LIBRARY PHOTO SELECTION ── */
 function selectFromLibrary() {
@@ -721,6 +999,7 @@ async function handleLibrarySelection(input) {
     input.value = '';
     renderPreviews(); 
     updateModalCounter();
+    saveAutoSaveData(); // 🌟 Auto-save เมื่อเพิ่มรูปสำเร็จ
 }
 
 function fileToDataUrl(file) {
@@ -730,4 +1009,59 @@ function fileToDataUrl(file) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+
+/* ── Profile Dropdown ── */
+function toggleProfileMenu() {
+    document.getElementById('profile-dropdown').classList.toggle('show');
+}
+
+window.addEventListener('click', function(e) {
+    const wrap = document.getElementById('profile-menu-wrap');
+    const dropdown = document.getElementById('profile-dropdown');
+    if (wrap && dropdown && !wrap.contains(e.target)) {
+        dropdown.classList.remove('show');
+    }
+});
+
+/* ── Profile Avatar Upload ── */
+async function handleProfileUpload(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) return;
+
+    toast('Updating profile picture...', true);
+
+    try {
+        const dataUrl = await fileToDataUrl(file);
+        userProfile.avatar = dataUrl;
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(userProfile));
+
+        loadAvatarUI();
+        toast('Profile picture updated!');
+    } catch (e) {
+        console.error(e);
+        toast('Failed to update picture.', false);
+    }
+    input.value = '';
+}
+
+function loadAvatarUI() {
+    const avatarData = userProfile.avatar;
+    const imgLarge = document.getElementById('avatar-img');
+    const textLarge = document.getElementById('avatar-text');
+    const imgSmall = document.getElementById('avatar-small-img');
+    const textSmall = document.getElementById('avatar-small-text');
+
+    if (avatarData) {
+        if (imgLarge) { imgLarge.src = avatarData; imgLarge.style.display = 'block'; }
+        if (textLarge) { textLarge.style.display = 'none'; }
+        if (imgSmall) { imgSmall.src = avatarData; imgSmall.style.display = 'block'; }
+        if (textSmall) { textSmall.style.display = 'none'; }
+    } else {
+        if (imgLarge) { imgLarge.style.display = 'none'; }
+        if (textLarge) { textLarge.style.display = 'block'; }
+        if (imgSmall) { imgSmall.style.display = 'none'; }
+        if (textSmall) { textSmall.style.display = 'block'; }
+    }
 }
