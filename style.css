@@ -1,276 +1,973 @@
-<!DOCTYPE html>
-<html lang="en">
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600&display=swap');
+:root {
+    --bg-color: #F7F7F8;
+    --card-bg: #FFFFFF;
+    --text-main: #333333;
+    --text-muted: #888888;
+    --border-light: #EBEBEB;
+    --primary: #7C9082;
+    --primary-hover: #677B6D;
+    --focus-ring: rgba(124, 144, 130, 0.2);
+    --danger: #D48A8A;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
+}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checklist</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#7C9082">
-    <link rel="apple-touch-icon" href="icon.png">
-    <link rel="stylesheet" href="style.css">
-</head>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-<body>
+body {
+    font-family: 'Noto Sans Thai', sans-serif;
+    background: var(--bg-color);
+    min-height: 100vh;
+    color: var(--text-main);
+    line-height: 1.5;
+}
 
-    <div id="login-screen" style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:2rem; background:var(--bg-color);">
-        <div style="width:100%; max-width:400px; background:#FFF; border-radius:20px; padding:2.5rem; box-shadow:0 8px 24px rgba(0,0,0,0.06); border:1px solid #F0F0F0;">
-            <div style="text-align:center; margin-bottom:2rem;">
-                <div style="width:56px; height:56px; background:#F0F4F1; border-radius:16px; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem;">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7C9082" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                </div>
-                <h2 style="font-size:20px; font-weight:600; color:#333; margin-bottom:4px;">Checklist</h2>
-                <p style="font-size:13px; color:#888;">Sign in to continue</p>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:14px;">
-                <div>
-                    <label style="font-size:13px; font-weight:500; color:#555; display:block; margin-bottom:6px;">Username</label>
-                    <input type="text" id="login-username" placeholder="your_username"
-                        style="width:100%; padding:10px 14px; font-size:14px; border:1px solid #EBEBEB; border-radius:8px; background:#FAFAFA; outline:none; font-family:inherit;"
-                        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
-                </div>
-                <div>
-                    <label style="font-size:13px; font-weight:500; color:#555; display:block; margin-bottom:6px;">Password</label>
-                    <input type="password" id="login-pass" placeholder="••••••••"
-                        style="width:100%; padding:10px 14px; font-size:14px; border:1px solid #EBEBEB; border-radius:8px; background:#FAFAFA; outline:none; font-family:inherit;"
-                        onkeydown="if(event.key==='Enter')doUserLogin()">
-                </div>
-                <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
-                    <input type="checkbox" id="login-remember" style="width:16px;height:16px;accent-color:#7C9082;cursor:pointer;">
-                    <label for="login-remember" style="font-size:13px;color:#666;cursor:pointer;">Remember me</label>
-                </div>
-                <div id="login-error" style="display:none; background:#FEF8F8; color:#D48A8A; padding:10px 14px; border-radius:8px; font-size:13px; border:1px solid #F0D0D0;"></div>
-                <button onclick="doUserLogin()" style="margin-top:4px; padding:12px; background:#7C9082; color:#FFF; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; font-family:inherit; transition:0.2s;" onmouseover="this.style.background='#677B6D'" onmouseout="this.style.background='#7C9082'">
-                    Sign In
-                </button>
-            </div>
-        </div>
-    </div>
 
-    <div class="app" id="main-app" style="display:none;">
-        <div class="header" style="position: relative; z-index: 100;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <h1>Checklist</h1>
-                <span class="rec-badge" id="rec-count">0 records</span>
-            </div>
-            
-            <div class="profile-menu-container" id="profile-menu-wrap" style="display: none;">
-                <div class="profile-trigger" onclick="toggleProfileMenu()">
-                    <div class="avatar" id="avatar-initial" style="position: relative; overflow: hidden;">
-                        <span id="avatar-small-text">U</span>
-                        <img id="avatar-small-img" src="" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
-                    </div>
-                </div>
-                
-                <div class="profile-dropdown" id="profile-dropdown">
-                    <div class="pd-header">
-                        <div class="avatar large" id="avatar-initial-large" onclick="document.getElementById('profile-upload-input').click()" style="cursor: pointer; position: relative; overflow: hidden;" title="Change Profile Picture">
-                            <span id="avatar-text">U</span>
-                            <img id="avatar-img" src="" style="display: none; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
-                            <div class="avatar-overlay">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                            </div>
-                        </div>
-                        <input type="file" id="profile-upload-input" accept="image/*" style="display: none;" onchange="handleProfileUpload(this)">
-                        
-                        <div class="pd-info">
-                            <div class="pd-name" id="pd-name">Name</div>
-                            <div class="pd-email" id="pd-email">email@example.com</div>
-                        </div>
-                    </div>
-                    <div class="pd-body">
-                        <div class="pd-row">
-                            <span class="pd-label">Position</span>
-                            <span class="badge badge-pos" id="pd-position">Position</span>
-                        </div>
-                    </div>
-                    <div class="pd-footer">
-                        <button class="btn-logout" onclick="doUserLogout()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                            Logout
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+/* Layout & Tabs */
 
-        <div class="tabs">
-            <div class="tab active" onclick="switchTab('new')">New Visit</div>
-            <div class="tab" onclick="switchTab('list')">All Visits</div>
-        </div>
+.app {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
 
-        <div id="tab-new" style="display:none">
-            <div class="card">
-                <div class="section-title">Visit Information</div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Outlet Name <span class="req">*</span></label>
-                        <input type="text" id="f-outlet" placeholder="e.g. The Empire Bar">
-                    </div>
-                    <div class="form-group">
-                        <label>Area <span class="req">*</span></label>
-                        <select id="f-area">
-                            <option value="">Select area</option>
-                            <option>BKK</option><option>NORTH</option><option>NORTHEAST</option>
-                            <option>WEST</option><option>EAST</option><option>SOUTH</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Person You Met <span class="req">*</span></label>
-                        <input type="text" id="f-person" placeholder="Full name">
-                    </div>
-                    <div class="form-group">
-                        <label>Their Position <span class="req">*</span></label>
-                        <select id="f-position">
-                            <option value="">Select position</option>
-                            <option>CEO</option><option>CFO</option><option>OWNER</option>
-                            <option>BARTENDER</option><option>F&amp;B MANAGER</option>
-                            <option>MANAGER</option><option value="__other__">ETC — Please Type</option>
-                        </select>
-                    </div>
-                    <div class="form-group full" id="pos-other-wrap" style="display:none">
-                        <label>Specify Position <span class="req">*</span></label>
-                        <input type="text" id="f-pos-other" placeholder="Enter position">
-                    </div>
-                    <div class="form-group">
-                        <label>Visit Date <span class="req">*</span></label>
-                        <input type="date" id="f-date" lang="en-US">
-                    </div>
-                    <div class="form-group full">
-                        <label>Reason for Visit <span class="req">*</span></label>
-                        <textarea id="f-reason" rows="2" placeholder="Purpose of this visit..."></textarea>
-                    </div>
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
 
-                    <div class="form-group full">
-                        <label>Result of Visit <span class="req" id="result-req-star">*</span></label>
-                        <textarea id="f-result" rows="2" placeholder="Outcomes, agreements, follow-ups..."></textarea>
-                    </div>
+.header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+}
 
-                    <div class="form-group full" style="margin-top: 8px;">
-                        <label>Follow-up Actions <span style="color:var(--text-muted); font-weight:normal;">(Optional)</span></label>
-                        <div class="checkbox-grid">
-                            <label class="cb-label"><input type="checkbox" class="f-followup" value="Send Quotation / Documents"> Send Quotation/Docs</label>
-                            <label class="cb-label"><input type="checkbox" class="f-followup" value="Call Back Later"> Call Back Later</label>
-                            <label class="cb-label"><input type="checkbox" id="cb-next-visit" class="f-followup" value="Schedule Next Visit"> Schedule Next Visit</label>
-                        </div>
-                        <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: #F0F4F1; padding: 12px; border-radius: 8px; border: 1px solid #D1E0D5;">
-                            <label style="font-size: 12px; color: var(--primary); display: block; margin-bottom: 6px;">Select Date for Next Visit:</label>
-                            <input type="date" id="f-next-date" lang="en-US" style="border-color: #B5CCBD; width: 100%;">
-                        </div>
-                    </div>
-                </div>
-            </div>
+.header .rec-badge {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--card-bg);
+    padding: 6px 14px;
+    border-radius: 24px;
+    border: 1px solid var(--border-light);
+}
 
-            <div class="card">
-                <div class="section-title" style="display: flex; justify-content: space-between;">
-                    <span>Live Evidence</span>
-                    <span id="photo-counter" style="color: var(--primary); font-weight: 600;">0 / 10</span>
-                </div>
+.tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 1.5rem;
+    background: #EEEEEE;
+    padding: 6px;
+    border-radius: var(--radius-md);
+}
 
-                <div class="easy-camera-container">
-                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                        <button class="btn-open-camera" id="btn-start-cam" onclick="startCamera()" type="button" style="margin: 0; padding: 12px 20px;">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                            CAMERA
-                        </button>
-                        <button class="btn-secondary" onclick="selectFromLibrary()" type="button" style="margin: 0; padding: 12px 20px; border-radius: 30px; display: flex; align-items: center; font-weight: 600; border: 2px solid var(--primary); color: var(--primary);">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                            LIBRARY
-                        </button>
-                    </div>
-                    <input type="file" id="library-input" accept="image/*" multiple style="display: none;" onchange="handleLibrarySelection(this)">
-                    <p style="font-size: 12px; color: #888; margin-top: 12px;">Capture or select up to 10 photos</p>
-                    <div class="captured-section" id="captured-section" style="display: none;">
-                        <div class="captured-title">Captured Photos (Click to view)</div>
-                        <div class="photo-previews" id="previews"></div>
-                    </div>
-                </div>
-            </div>
+.tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 12px;
+    color: #666;
+    transition: all 0.2s ease;
+}
 
-            <div class="form-actions">
-                <button class="btn-secondary" id="btn-clear" onclick="clearForm()">Clear</button>
-                <button class="btn-primary" id="btn-save" onclick="triggerSaveConfirm()">Save Visit</button>
-            </div>
-        </div>
+.tab:hover {
+    color: var(--text-main);
+}
 
-        <div id="tab-list" style="display:none">
-            <div class="filters">
-                <select class="filter-select" id="fl-area" onchange="renderList()">
-                    <option value="">All areas</option>
-                    <option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option>
-                </select>
-                <select class="filter-select" id="fl-pos" onchange="renderList()">
-                    <option value="">All positions</option>
-                    <option>CEO</option><option>CFO</option><option>OWNER</option><option>BARTENDER</option><option>F&amp;B MANAGER</option><option>MANAGER</option>
-                </select>
-                <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="renderList()" style="flex: 1; min-width:140px">
-            </div>
-            <div class="visit-list" id="visit-list"></div>
-        </div>
+.tab.active {
+    background: var(--card-bg);
+    color: var(--text-main);
+    font-weight: 500;
+    box-shadow: var(--shadow-sm);
+}
 
-    </div>
 
-    <div class="camera-modal" id="camera-modal">
-        <div class="camera-header" id="camera-header">
-            <span id="modal-photo-counter" style="color: #FFF; font-weight: 500; font-size: 14px; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px;">0 / 10</span>
-            <button class="btn-close-modal" onclick="stopCamera()">Done</button>
-        </div>
-        <div class="camera-body" id="camera-body">
-            <video id="camera-view" autoplay playsinline></video>
-        </div>
-        <div class="camera-footer" id="camera-footer">
-            <div class="camera-recent-thumb" id="camera-recent-thumb" onclick="openCameraGallery()" title="View Gallery"></div>
-            <button class="btn-capture-round" onclick="capturePhoto()"></button>
-            <div class="camera-spacer"></div>
-        </div>
-        <canvas id="camera-canvas" style="display: none;"></canvas>
+/* Forms & Cards */
 
-        <div class="camera-gallery" id="camera-gallery">
-            <div class="cg-header">
-                <button class="btn-close-modal" onclick="closeCameraGallery()">◀ Back to Camera</button>
-                <span style="color:white; font-size:14px; font-weight:500;">Gallery</span>
-                <div style="width:120px"></div>
-            </div>
-            <div class="cg-grid" id="cg-grid"></div>
-        </div>
-    </div>
+.card {
+    background: var(--card-bg);
+    border: 1px solid #F0F0F0;
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
 
-    <div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
-        <div class="detail-box">
-            <button class="detail-close" onclick="closeDetail()">✕</button>
-            <div id="detail-content"></div>
-        </div>
-    </div>
+.section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+}
 
-    <div class="confirm-overlay" id="save-confirm-overlay" onclick="if(event.target===this)closeSaveConfirm()">
-        <div class="confirm-box" style="padding: 1.5rem; max-width: 480px; position: relative;">
-            <button class="detail-close" onclick="closeSaveConfirm()" style="position: absolute; top: 16px; right: 16px;">✕</button>
-            <h3 style="margin-bottom: 1rem; color: var(--text-main); font-size: 16px; font-weight: 600;">Review Visit Details</h3>
-            <div id="save-confirm-text" style="margin-bottom: 1.5rem; text-align: left;"></div>
-            <div class="confirm-actions" id="save-confirm-actions">
-                <button class="btn-secondary" onclick="enableModalEdit()">Edit</button>
-                <button class="btn-primary" onclick="executeSave()">Confirm & Save</button>
-            </div>
-        </div>
-    </div>
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
 
-    <div class="confirm-overlay" id="delete-confirm-overlay" onclick="if(event.target===this)closeDeleteRequest()">
-        <div class="confirm-box">
-            <h3 style="margin-bottom: 12px; font-size: 18px; color: #D48A8A;">Delete Request</h3>
-            <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Reason for delete request:</p>
-            <textarea id="delete-reason-input" rows="3" placeholder="e.g., Duplicated entry..." style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; resize: none;"></textarea>
-            <div class="confirm-actions">
-                <button class="btn-secondary" onclick="closeDeleteRequest()">Cancel</button>
-                <button class="btn-primary btn-danger" onclick="executeDeleteRequest()">Confirm Delete</button>
-            </div>
-        </div>
-    </div>
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
 
-    <div class="lightbox" id="lightbox" onclick="closeLightbox()"><img id="lb-img" src="" alt="Photo"></div>
-    <div class="toast" id="toast"></div>
+.form-group.full {
+    grid-column: 1 / -1;
+}
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
-</body>
+label {
+    font-size: 13px;
+    color: #555;
+    font-weight: 500;
+}
 
-</html>
+label .req {
+    color: var(--danger);
+    margin-left: 2px;
+}
+
+input[type=text],
+input[type=email],
+input[type=date],
+select,
+textarea {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: #FAFAFA;
+    outline: none;
+    transition: 0.2s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--primary);
+    background: #FFF;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 90px;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+@media (min-width: 500px) {
+    .checkbox-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.cb-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.cb-label input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+
+/* Buttons */
+
+.btn-primary {
+    padding: 12px 24px;
+    background: var(--primary);
+    color: #FFF;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    padding: 12px 20px;
+    background: #FFF;
+    color: var(--text-main);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-secondary:hover {
+    background: #F9F9F9;
+    border-color: #CCC;
+}
+
+.btn-danger {
+    color: var(--danger);
+    border-color: #F0D0D0;
+    background: #FEF8F8;
+}
+
+.btn-danger:hover {
+    background: #FDEDED;
+    border-color: var(--danger);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 1.5rem;
+}
+
+
+/* Camera Form UI */
+
+.easy-camera-container {
+    border: 1px solid #EBEBEB;
+    border-radius: 12px;
+    background: #FAFAFA;
+    padding: 24px;
+    text-align: center;
+}
+
+.btn-open-camera {
+    display: inline-flex;
+    align-items: center;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(124, 144, 130, 0.3);
+    transition: 0.2s;
+}
+
+.btn-open-camera:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+}
+
+.captured-section {
+    margin-top: 24px;
+    text-align: left;
+    border-top: 1px solid #EBEBEB;
+    padding-top: 16px;
+}
+
+.captured-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+.photo-previews {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.photo-thumb {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    background: #FFF;
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid #EAEAEA;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s;
+}
+
+.photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: zoom-in;
+}
+
+.photo-thumb button {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    background: #FFF;
+    border: 1px solid #EAEAEA;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.photo-thumb button:hover {
+    background: var(--danger);
+    color: #FFF;
+    border-color: var(--danger);
+}
+
+
+/* 🌟 Fullscreen Camera Layout */
+
+.camera-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 99999;
+    flex-direction: column;
+}
+
+.camera-modal.open {
+    display: flex;
+    animation: slideUp 0.3s;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+.camera-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+    position: absolute;
+    top: 0;
+    width: 100%;
+    z-index: 10;
+}
+
+.btn-close-modal {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+}
+
+.camera-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #000;
+}
+
+#camera-view {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    object-fit: contain;
+    transition: opacity 0.15s;
+}
+
+
+/* 🌟 Camera Footer */
+
+.camera-footer {
+    padding: 20px 30px;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom, 40px);
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    z-index: 10;
+}
+
+.camera-recent-thumb {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    background-color: #222;
+    background-size: cover;
+    background-position: center;
+    border: 2px solid #FFF;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.camera-recent-thumb:active {
+    transform: scale(0.9);
+}
+
+.camera-spacer {
+    width: 52px;
+    height: 52px;
+}
+
+.btn-capture-round {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #FFF;
+    border: 4px solid #AAA;
+    outline: 4px solid #FFF;
+    outline-offset: 2px;
+    cursor: pointer;
+}
+
+.btn-capture-round:active {
+    transform: scale(0.92);
+    background: #EEE;
+}
+
+
+/* 🌟 Camera Gallery Overlay */
+
+.camera-gallery {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: #000;
+    z-index: 20;
+    flex-direction: column;
+}
+
+.cg-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: #111;
+    border-bottom: 1px solid #333;
+}
+
+.cg-grid {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    overflow-y: auto;
+    flex: 1;
+    align-content: flex-start;
+}
+
+.cg-item {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #222;
+}
+
+.cg-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: zoom-in;
+}
+
+.cg-delete {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(212, 138, 138, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+
+/* Other Utilities */
+
+.toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    color: #FFF;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    display: none;
+    z-index: 999999;
+    box-shadow: var(--shadow-md);
+}
+
+.toast.show {
+    display: block;
+    animation: fadein 0.3s;
+}
+
+@keyframes fadein {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+/* Lists & Detail Modals */
+
+.visit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.visit-card {
+    background: var(--card-bg);
+    border: 1px solid #F0F0F0;
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+}
+
+.vc-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.vc-name {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.vc-date {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.vc-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-area {
+    background: #F0F4F1;
+    color: #5A7060;
+}
+
+.badge-pos {
+    background: #F5F0E6;
+    color: #7A6850;
+}
+
+.vc-reason {
+    font-size: 13px;
+    color: #666;
+    margin-top: 10px;
+    line-height: 1.6;
+}
+
+.vc-thumbs {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.vc-thumb {
+    width: 52px;
+    height: 52px;
+    background: #FFF;
+    padding: 3px;
+    border-radius: 4px;
+    border: 1px solid #E5E5E5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.vc-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--text-muted);
+}
+
+.filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.filter-select {
+    padding: 10px 14px;
+    font-size: 13px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+}
+
+.detail-overlay,
+.confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    overflow-y: auto;
+    padding: 2rem 1rem;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.detail-overlay.open,
+.confirm-overlay.open {
+    display: flex;
+}
+
+.detail-box,
+.confirm-box {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 700px;
+    padding: 2rem;
+    position: relative;
+    box-shadow: var(--shadow-md);
+    margin: auto;
+}
+
+.detail-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: #F5F5F5;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 24px;
+    margin-bottom: 8px;
+}
+
+.detail-col-visitor {
+    background: #FAFAFA;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border-light);
+}
+
+.detail-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.detail-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.detail-value {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.detail-photos {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.detail-photo {
+    width: 120px;
+    height: 120px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #E5E5E5;
+    cursor: pointer;
+}
+
+.detail-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+
+.lightbox.open {
+    display: flex;
+}
+
+.lightbox img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: var(--radius-sm);
+}
+
+@media (max-width: 600px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- Fix รูปล้นในหน้า Confirm --- */
+.confirm-photo-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+.confirm-photo-grid img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+}
+
+/* --- Fix บัคหัวข้อ Outlet ถูกตัดในหน้า Detail --- */
+#detail-overlay {
+    padding-top: 3rem;
+    align-items: flex-start;
+}
+
+.detail-box {
+    padding-top: 2.5rem; 
+}
+
+/* 🌟 Profile Dropdown Menu */
+.profile-menu-container {
+    position: relative;
+}
+.profile-trigger {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.profile-trigger:active {
+    transform: scale(0.95);
+}
+.avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #FFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+    box-shadow: var(--shadow-sm);
+}
+.avatar.large {
+    width: 52px;
+    height: 52px;
+    font-size: 24px;
+}
+.profile-dropdown {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    background: #FFF;
+    width: 280px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    border: 1px solid #EBEBEB;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+.profile-dropdown.show {
+    display: flex;
+    animation: dropDownAnim 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes dropDownAnim {
+    from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.pd-header {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #FAFAFA;
+    border-bottom: 1px solid #EBEBEB;
+}
+.pd-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+}
+.pd-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pd-email {
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pd-body {
+    padding: 16px 20px;
+}
+.pd-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.pd-label {
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+}
+.pd-footer {
+    padding: 12px;
+    border-top: 1px solid #EBEBEB;
+}
+.btn-logout {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: #FFF;
+    border: none;
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-logout:hover {
+    background: #FEF8F8;
+}
+
+/* 🌟 Profile Image Upload Overlay */
+.avatar-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.avatar.large:hover .avatar-overlay {
+    opacity: 1;
+}
+
+/* 🌟 Error Highlight UX (แจ้งเตือนช่องที่ไม่ได้กรอก) */
+.error-highlight {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 3px rgba(212, 138, 138, 0.2) !important;
+    animation: shake 0.4s ease-in-out;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
