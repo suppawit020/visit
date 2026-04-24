@@ -27,7 +27,7 @@ try {
 
 /* ── Login ── */
 async function doUserLogin() {
-    const username = document.getElementById('login-username').value.trim().toLowerCase();
+    const username = document.getElementById('login-username').value.trim();
     const pass     = document.getElementById('login-pass').value;
     const remember = document.getElementById('login-remember').checked;
     const errEl    = document.getElementById('login-error');
