@@ -800,3 +800,29 @@ textarea {
         grid-template-columns: 1fr;
     }
 }
+
+/* --- Fix รูปล้นในหน้า Confirm --- */
+.confirm-photo-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+.confirm-photo-grid img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+}
+
+/* --- Fix บัคหัวข้อ Outlet ถูกตัดในหน้า Detail --- */
+#detail-overlay {
+    padding-top: 3rem; /* ขยับกล่อง Detail ลงมา 3rem ให้ห่างจากขอบบนจอ */
+    align-items: flex-start; /* บังคับให้กล่องเกาะด้านบน ไม่ไปกระจุกตรงกลางเมื่อเนื้อหายาว */
+}
+
+/* เพิ่มช่องว่างด้านบนภายในกล่อง Detail เผื่อปุ่มปิดบัง */
+.detail-box {
+    padding-top: 2.5rem; 
+}
