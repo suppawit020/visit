@@ -971,3 +971,8 @@ textarea {
     60% { transform: translateX(-4px); }
     80% { transform: translateX(4px); }
 }
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
