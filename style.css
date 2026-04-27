@@ -30,9 +30,7 @@ body {
     line-height: 1.5;
 }
 
-
 /* Layout & Tabs */
-
 .app {
     max-width: 800px;
     margin: 0 auto;
@@ -65,7 +63,7 @@ body {
     display: flex;
     gap: 6px;
     margin-bottom: 1.5rem;
-    background: #EEEEEE;
+    background: var(--border-light);
     padding: 6px;
     border-radius: var(--radius-md);
 }
@@ -77,7 +75,7 @@ body {
     font-size: 14px;
     cursor: pointer;
     border-radius: 12px;
-    color: #666;
+    color: var(--text-muted);
     transition: all 0.2s ease;
 }
 
@@ -92,12 +90,10 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
-
 /* Forms & Cards */
-
 .card {
     background: var(--card-bg);
-    border: 1px solid #F0F0F0;
+    border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
     padding: 1.75rem;
     margin-bottom: 1.25rem;
@@ -133,7 +129,7 @@ body {
 
 label {
     font-size: 13px;
-    color: #555;
+    color: var(--text-muted);
     font-weight: 500;
 }
 
@@ -145,6 +141,7 @@ label .req {
 input[type=text],
 input[type=email],
 input[type=date],
+input[type=password],
 select,
 textarea {
     width: 100%;
@@ -152,7 +149,8 @@ textarea {
     font-size: 14px;
     border: 1px solid var(--border-light);
     border-radius: var(--radius-sm);
-    background: #FAFAFA;
+    background: var(--bg-color);
+    color: var(--text-main);
     outline: none;
     transition: 0.2s;
 }
@@ -161,7 +159,7 @@ input:focus,
 select:focus,
 textarea:focus {
     border-color: var(--primary);
-    background: #FFF;
+    background: var(--card-bg);
     box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
@@ -197,9 +195,7 @@ textarea {
     accent-color: var(--primary);
 }
 
-
 /* Buttons */
-
 .btn-primary {
     padding: 12px 24px;
     background: var(--primary);
@@ -219,7 +215,7 @@ textarea {
 
 .btn-secondary {
     padding: 12px 20px;
-    background: #FFF;
+    background: var(--card-bg);
     color: var(--text-main);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-sm);
@@ -229,7 +225,7 @@ textarea {
 }
 
 .btn-secondary:hover {
-    background: #F9F9F9;
+    background: var(--bg-color);
     border-color: #CCC;
 }
 
@@ -251,13 +247,11 @@ textarea {
     margin-top: 1.5rem;
 }
 
-
 /* Camera Form UI */
-
 .easy-camera-container {
-    border: 1px solid #EBEBEB;
+    border: 1px solid var(--border-light);
     border-radius: 12px;
-    background: #FAFAFA;
+    background: var(--bg-color);
     padding: 24px;
     text-align: center;
 }
@@ -285,7 +279,7 @@ textarea {
 .captured-section {
     margin-top: 24px;
     text-align: left;
-    border-top: 1px solid #EBEBEB;
+    border-top: 1px solid var(--border-light);
     padding-top: 16px;
 }
 
@@ -307,10 +301,10 @@ textarea {
     position: relative;
     width: 80px;
     height: 80px;
-    background: #FFF;
+    background: var(--card-bg);
     padding: 4px;
     border-radius: 8px;
-    border: 1px solid #EAEAEA;
+    border: 1px solid var(--border-light);
     box-shadow: var(--shadow-sm);
     transition: transform 0.2s;
 }
@@ -329,8 +323,9 @@ textarea {
     right: -8px;
     width: 22px;
     height: 22px;
-    background: #FFF;
-    border: 1px solid #EAEAEA;
+    background: var(--card-bg);
+    color: var(--text-main);
+    border: 1px solid var(--border-light);
     border-radius: 50%;
     cursor: pointer;
     font-size: 10px;
@@ -343,9 +338,7 @@ textarea {
     border-color: var(--danger);
 }
 
-
-/* 🌟 Fullscreen Camera Layout */
-
+/* Fullscreen Camera Layout */
 .camera-modal {
     display: none;
     position: fixed;
@@ -361,12 +354,8 @@ textarea {
 }
 
 @keyframes slideUp {
-    from {
-        transform: translateY(100%);
-    }
-    to {
-        transform: translateY(0);
-    }
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
 }
 
 .camera-header {
@@ -409,9 +398,6 @@ textarea {
     transition: opacity 0.15s;
 }
 
-
-/* 🌟 Camera Footer */
-
 .camera-footer {
     padding: 20px 30px;
     background: rgba(0, 0, 0, 0.8);
@@ -445,6 +431,29 @@ textarea {
 .camera-spacer {
     width: 52px;
     height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-flip-camera {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    transition: transform 0.2s, background 0.2s;
+}
+
+.btn-flip-camera:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.3);
 }
 
 .btn-capture-round {
@@ -462,9 +471,6 @@ textarea {
     transform: scale(0.92);
     background: #EEE;
 }
-
-
-/* 🌟 Camera Gallery Overlay */
 
 .camera-gallery {
     display: none;
@@ -527,9 +533,7 @@ textarea {
     cursor: pointer;
 }
 
-
 /* Other Utilities */
-
 .toast {
     position: fixed;
     top: 24px;
@@ -550,19 +554,11 @@ textarea {
 }
 
 @keyframes fadein {
-    from {
-        opacity: 0;
-        transform: translateY(-12px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-
 /* Lists & Detail Modals */
-
 .visit-list {
     display: flex;
     flex-direction: column;
@@ -571,7 +567,7 @@ textarea {
 
 .visit-card {
     background: var(--card-bg);
-    border: 1px solid #F0F0F0;
+    border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
     padding: 1.25rem 1.5rem;
     cursor: pointer;
@@ -608,18 +604,20 @@ textarea {
 }
 
 .badge-area {
-    background: #F0F4F1;
-    color: #5A7060;
+    background: var(--bg-color);
+    color: var(--primary);
+    border: 1px solid var(--border-light);
 }
 
 .badge-pos {
-    background: #F5F0E6;
-    color: #7A6850;
+    background: var(--bg-color);
+    color: var(--text-muted);
+    border: 1px solid var(--border-light);
 }
 
 .vc-reason {
     font-size: 13px;
-    color: #666;
+    color: var(--text-muted);
     margin-top: 10px;
     line-height: 1.6;
 }
@@ -633,10 +631,10 @@ textarea {
 .vc-thumb {
     width: 52px;
     height: 52px;
-    background: #FFF;
+    background: var(--card-bg);
     padding: 3px;
     border-radius: 4px;
-    border: 1px solid #E5E5E5;
+    border: 1px solid var(--border-light);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -669,6 +667,7 @@ textarea {
     border: 1px solid var(--border-light);
     border-radius: var(--radius-sm);
     background: var(--card-bg);
+    color: var(--text-main);
 }
 
 .detail-overlay,
@@ -705,7 +704,8 @@ textarea {
     position: absolute;
     top: 16px;
     right: 16px;
-    background: #F5F5F5;
+    background: var(--bg-color);
+    color: var(--text-main);
     border: none;
     width: 32px;
     height: 32px;
@@ -724,7 +724,7 @@ textarea {
 }
 
 .detail-col-visitor {
-    background: #FAFAFA;
+    background: var(--bg-color);
     padding: 16px 20px;
     border-radius: 12px;
     border: 1px solid var(--border-light);
@@ -761,7 +761,7 @@ textarea {
     height: 120px;
     padding: 6px;
     border-radius: 6px;
-    border: 1px solid #E5E5E5;
+    border: 1px solid var(--border-light);
     cursor: pointer;
 }
 
@@ -793,15 +793,10 @@ textarea {
 }
 
 @media (max-width: 600px) {
-    .form-grid {
-        grid-template-columns: 1fr;
-    }
-    .detail-grid {
-        grid-template-columns: 1fr;
-    }
+    .form-grid { grid-template-columns: 1fr; }
+    .detail-grid { grid-template-columns: 1fr; }
 }
 
-/* --- Fix รูปล้นในหน้า Confirm --- */
 .confirm-photo-grid {
     display: flex;
     gap: 8px;
@@ -816,7 +811,6 @@ textarea {
     border: 1px solid var(--border-light);
 }
 
-/* --- Fix บัคหัวข้อ Outlet ถูกตัดในหน้า Detail --- */
 #detail-overlay {
     padding-top: 3rem;
     align-items: flex-start;
@@ -826,17 +820,10 @@ textarea {
     padding-top: 2.5rem; 
 }
 
-/* 🌟 Profile Dropdown Menu */
-.profile-menu-container {
-    position: relative;
-}
-.profile-trigger {
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-.profile-trigger:active {
-    transform: scale(0.95);
-}
+/* 検 Profile Dropdown Menu */
+.profile-menu-container { position: relative; }
+.profile-trigger { cursor: pointer; transition: transform 0.2s; }
+.profile-trigger:active { transform: scale(0.95); }
 .avatar {
     width: 38px;
     height: 38px;
@@ -850,20 +837,16 @@ textarea {
     font-size: 16px;
     box-shadow: var(--shadow-sm);
 }
-.avatar.large {
-    width: 52px;
-    height: 52px;
-    font-size: 24px;
-}
+.avatar.large { width: 52px; height: 52px; font-size: 24px; }
 .profile-dropdown {
     position: absolute;
     top: 50px;
     right: 0;
-    background: #FFF;
+    background: var(--card-bg);
     width: 280px;
     border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
-    border: 1px solid #EBEBEB;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-light);
     display: none;
     flex-direction: column;
     overflow: hidden;
@@ -881,8 +864,8 @@ textarea {
     display: flex;
     align-items: center;
     gap: 16px;
-    background: #FAFAFA;
-    border-bottom: 1px solid #EBEBEB;
+    background: var(--bg-color);
+    border-bottom: 1px solid var(--border-light);
 }
 .pd-info {
     display: flex;
@@ -905,9 +888,7 @@ textarea {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.pd-body {
-    padding: 16px 20px;
-}
+.pd-body { padding: 16px 20px; }
 .pd-row {
     display: flex;
     justify-content: space-between;
@@ -915,12 +896,12 @@ textarea {
 }
 .pd-label {
     font-size: 13px;
-    color: #666;
+    color: var(--text-muted);
     font-weight: 500;
 }
 .pd-footer {
     padding: 12px;
-    border-top: 1px solid #EBEBEB;
+    border-top: 1px solid var(--border-light);
 }
 .btn-logout {
     width: 100%;
@@ -928,7 +909,7 @@ textarea {
     align-items: center;
     justify-content: center;
     padding: 12px;
-    background: #FFF;
+    background: var(--card-bg);
     border: none;
     color: var(--danger);
     font-size: 14px;
@@ -938,10 +919,9 @@ textarea {
     transition: background 0.2s;
 }
 .btn-logout:hover {
-    background: #FEF8F8;
+    background: var(--bg-color);
 }
 
-/* 🌟 Profile Image Upload Overlay */
 .avatar-overlay {
     position: absolute;
     inset: 0;
@@ -952,11 +932,8 @@ textarea {
     opacity: 0;
     transition: opacity 0.2s ease;
 }
-.avatar.large:hover .avatar-overlay {
-    opacity: 1;
-}
+.avatar.large:hover .avatar-overlay { opacity: 1; }
 
-/* 🌟 Error Highlight UX (แจ้งเตือนช่องที่ไม่ได้กรอก) */
 .error-highlight {
     border-color: var(--danger) !important;
     box-shadow: 0 0 0 3px rgba(212, 138, 138, 0.2) !important;
@@ -975,4 +952,201 @@ textarea {
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
     display: none;
+}
+
+/* 検 Skeleton Loading Animation */
+.skeleton-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.skeleton-header, .skeleton-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.skeleton-meta { justify-content: flex-start; gap: 10px; }
+
+.skeleton-title { width: 40%; height: 20px; border-radius: 4px; }
+.skeleton-date { width: 20%; height: 16px; border-radius: 4px; }
+.skeleton-badge { width: 60px; height: 20px; border-radius: 10px; }
+.skeleton-text { width: 30%; height: 16px; border-radius: 4px; }
+.skeleton-body { width: 100%; height: 40px; border-radius: 4px; margin-top: 15px; }
+
+.skeleton-title, .skeleton-date, .skeleton-badge, .skeleton-text, .skeleton-body {
+    background: linear-gradient(90deg, var(--bg-color) 25%, var(--border-light) 50%, var(--bg-color) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* 検 Pending Delete Styles */
+.visit-card-pending {
+    opacity: 0.7;
+    border: 1px dashed var(--danger);
+    background: #FFF9F9 !important;
+}
+.badge-pending {
+    background: #FFEBEB;
+    color: var(--danger);
+    border: none;
+}
+.pending-warning {
+    background: #FFF5F5;
+    border: 1px solid #FBCBCB;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+.pending-warning strong { color: var(--danger); font-size: 13px; }
+.pending-warning div { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+/* 検 Dark Mode Variables */
+body.dark-mode {
+    --bg-color: #121212;
+    --card-bg: #1E1E1E;
+    --text-main: #E0E0E0;
+    --text-muted: #A0A0A0;
+    --border-light: #333333;
+    --primary: #8CA693;
+    --primary-hover: #7C9082;
+    --focus-ring: rgba(140, 166, 147, 0.2);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .skeleton-title, 
+body.dark-mode .skeleton-date, 
+body.dark-mode .skeleton-badge, 
+body.dark-mode .skeleton-text, 
+body.dark-mode .skeleton-body {
+    background: linear-gradient(90deg, #2A2A2A 25%, #3A3A3A 50%, #2A2A2A 75%);
+    background-size: 200% 100%;
+}
+
+/* Dark Mode Overrides for Pending */
+body.dark-mode .visit-card-pending {
+    background: #251B1B !important; 
+    border-color: #6A3A3A !important;
+    opacity: 0.85;
+}
+body.dark-mode .badge-pending {
+    background: #4A2525;
+    color: #ECA4A4;
+}
+body.dark-mode .pending-warning {
+    background: #2D1E1E;
+    border-color: #6A3A3A;
+}
+
+/* 検 Autofill & Login Dark Mode Overrides */
+body.dark-mode input:-webkit-autofill,
+body.dark-mode input:-webkit-autofill:hover,
+body.dark-mode input:-webkit-autofill:focus,
+body.dark-mode input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px var(--bg-color) inset !important;
+    -webkit-text-fill-color: var(--text-main) !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* แก้ไขสีไอคอนปฏิทินใน Dark Mode */
+body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(0.8);
+    cursor: pointer;
+}
+body.dark-mode input[type="date"] {
+    color: var(--text-main);
+}
+/* ============================================================
+   Pagination
+   ============================================================ */
+.pagination-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.pagination-btn {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(124, 144, 130, 0.06);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.pagination-btn-active {
+    background: var(--primary);
+    color: #FFF;
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(124, 144, 130, 0.35);
+}
+
+.pagination-btn-active:hover {
+    background: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+    color: #FFF !important;
+}
+
+.pagination-btn-nav {
+    font-size: 18px;
+    font-weight: 400;
+}
+
+.pagination-ellipsis {
+    color: var(--text-muted);
+    font-size: 14px;
+    padding: 0 4px;
+    display: inline-flex;
+    align-items: center;
+    height: 38px;
+}
+
+.pagination-info {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 10px;
+}
+
+/* Dark mode */
+body.dark-mode .pagination-btn {
+    background: var(--card-bg);
+    border-color: var(--border-light);
+    color: var(--text-main);
+}
+body.dark-mode .pagination-btn-active {
+    background: var(--primary);
+    color: #FFF;
+    border-color: var(--primary);
 }
