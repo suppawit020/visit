@@ -820,7 +820,7 @@ textarea {
     padding-top: 2.5rem; 
 }
 
-/* 検 Profile Dropdown Menu */
+/* Profile Dropdown Menu */
 .profile-menu-container { position: relative; }
 .profile-trigger { cursor: pointer; transition: transform 0.2s; }
 .profile-trigger:active { transform: scale(0.95); }
@@ -954,7 +954,7 @@ input[type="password"]::-ms-clear {
     display: none;
 }
 
-/* 検 Skeleton Loading Animation */
+/* Skeleton Loading Animation */
 .skeleton-card {
     background: var(--card-bg);
     border: 1px solid var(--border-light);
@@ -988,7 +988,7 @@ input[type="password"]::-ms-clear {
     100% { background-position: -200% 0; }
 }
 
-/* 検 Pending Delete Styles */
+/* Pending Delete Styles */
 .visit-card-pending {
     opacity: 0.7;
     border: 1px dashed var(--danger);
@@ -1009,7 +1009,7 @@ input[type="password"]::-ms-clear {
 .pending-warning strong { color: var(--danger); font-size: 13px; }
 .pending-warning div { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 
-/* 検 Dark Mode Variables */
+/* Dark Mode Variables */
 body.dark-mode {
     --bg-color: #121212;
     --card-bg: #1E1E1E;
@@ -1047,7 +1047,7 @@ body.dark-mode .pending-warning {
     border-color: #6A3A3A;
 }
 
-/* 検 Autofill & Login Dark Mode Overrides */
+/* Autofill & Login Dark Mode Overrides */
 body.dark-mode input:-webkit-autofill,
 body.dark-mode input:-webkit-autofill:hover,
 body.dark-mode input:-webkit-autofill:focus,
@@ -1057,7 +1057,6 @@ body.dark-mode input:-webkit-autofill:active {
     transition: background-color 5000s ease-in-out 0s;
 }
 
-/* แก้ไขสีไอคอนปฏิทินใน Dark Mode */
 body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(1) brightness(0.8);
     cursor: pointer;
@@ -1065,9 +1064,8 @@ body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
 body.dark-mode input[type="date"] {
     color: var(--text-main);
 }
-/* ============================================================
-   Pagination
-   ============================================================ */
+
+/* Pagination */
 .pagination-wrap {
     display: flex;
     align-items: center;
@@ -1139,7 +1137,6 @@ body.dark-mode input[type="date"] {
     margin-top: 10px;
 }
 
-/* Dark mode */
 body.dark-mode .pagination-btn {
     background: var(--card-bg);
     border-color: var(--border-light);
@@ -1149,4 +1146,48 @@ body.dark-mode .pagination-btn-active {
     background: var(--primary);
     color: #FFF;
     border-color: var(--primary);
+}
+
+/* ============================================================
+   FLATPICKR THEME FIXES (Light & Dark Mode)
+   ============================================================ */
+.flatpickr-calendar {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-light) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+.flatpickr-calendar.arrowTop:before, .flatpickr-calendar.arrowBottom:before {
+    border-bottom-color: var(--border-light) !important;
+    border-top-color: var(--border-light) !important;
+}
+.flatpickr-calendar.arrowTop:after, .flatpickr-calendar.arrowBottom:after {
+    border-bottom-color: var(--card-bg) !important;
+    border-top-color: var(--card-bg) !important;
+}
+.flatpickr-month, .flatpickr-current-month .flatpickr-monthDropdown-months {
+    color: var(--text-main) !important;
+    fill: var(--text-main) !important;
+}
+.flatpickr-day, .numInputWrapper span, .numInputWrapper input {
+    color: var(--text-main) !important;
+}
+span.flatpickr-weekday {
+    color: var(--text-muted) !important;
+    font-weight: 600;
+}
+.flatpickr-day.selected {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: #FFF !important;
+}
+.flatpickr-day:hover:not(.selected) {
+    background: var(--bg-color) !important;
+}
+.flatpickr-day.flatpickr-disabled, 
+.flatpickr-day.flatpickr-disabled:hover, 
+.flatpickr-day.prevMonthDay, 
+.flatpickr-day.nextMonthDay, 
+.flatpickr-day.notAllowed {
+    color: var(--text-muted) !important;
+    opacity: 0.4;
 }
