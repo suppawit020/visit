@@ -4,11 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checklist</title>
+    <title>Visitation</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#7C9082">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 
 <body>
@@ -23,13 +25,13 @@
                 <div style="width:56px; height:56px; background:rgba(124, 144, 130, 0.1); border-radius:16px; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem;">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 </div>
-                <h2 style="font-size:20px; font-weight:600; color:var(--text-main); margin-bottom:4px;">Checklist</h2>
+                <h2 style="font-size:20px; font-weight:600; color:var(--text-main); margin-bottom:4px;">Visitation</h2>
                 <p style="font-size:13px; color:var(--text-muted);">Sign in to continue</p>
             </div>
             <div style="display:flex; flex-direction:column; gap:14px;">
                 <div>
                     <label style="font-size:13px; font-weight:500; color:var(--text-muted); display:block; margin-bottom:6px;">Username</label>
-                    <input type="text" id="login-username" placeholder="your_username"
+                    <input type="text" id="login-username" placeholder="Username"
                         style="width:100%; padding:10px 14px; font-size:14px; border-radius:8px; outline:none; font-family:inherit;"
                         onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
                 </div>
@@ -62,7 +64,7 @@
     <div class="app" id="main-app" style="display:none;">
         <div class="header" style="position: relative; z-index: 100;">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <h1>Checklist</h1>
+                <h1>Visitation</h1>
                 <span class="rec-badge" id="rec-count">0 records</span>
             </div>
             
@@ -152,7 +154,7 @@
                     </div>
                     <div class="form-group">
                         <label>Visit Date <span class="req">*</span></label>
-                        <input type="date" id="f-date" lang="en-US">
+                        <input type="text" id="f-date" placeholder="Select Date">
                     </div>
                     <div class="form-group full">
                         <label>Reason for Visit <span class="req">*</span></label>
@@ -173,7 +175,7 @@
                         </div>
                         <div id="next-visit-wrap" style="display: none; margin-top: 10px; background: var(--bg-color); padding: 12px; border-radius: 8px; border: 1px solid var(--border-light);">
                             <label style="font-size: 12px; color: var(--primary); display: block; margin-bottom: 6px;">Select Date for Next Visit:</label>
-                            <input type="date" id="f-next-date" lang="en-US" style="border-color: var(--primary); width: 100%;">
+                            <input type="text" id="f-next-date" placeholder="Select Date" style="border-color: var(--primary); width: 100%;">
                         </div>
                     </div>
                 </div>
@@ -212,17 +214,31 @@
         </div>
 
         <div id="tab-list" style="display:none">
-            <div class="filters" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <select class="filter-select" id="fl-area" onchange="renderList()" style="width: 100%;">
-                    <option value="">All areas</option>
-                    <option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option>
-                </select>
-                <select class="filter-select" id="fl-pos" onchange="renderList()" style="width: 100%;">
-                    <option value="">All positions</option>
-                    <option>CEO</option><option>CFO</option><option>OWNER</option><option>BARTENDER</option><option>F&amp;B MANAGER</option><option>MANAGER</option>
-                </select>
-                <input class="filter-select" type="date" id="fl-date" onchange="renderList()" title="Filter by date" style="width: 100%;">
-                <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="renderList()" style="width: 100%;">
+            <div class="filters" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start;">
+                <div style="width: 100%;">
+                    <select class="filter-select" id="fl-area" onchange="resetAndFetch()" style="width: 100%;">
+                        <option value="">All areas</option>
+                        <option>BKK</option><option>NORTH</option><option>NORTHEAST</option><option>WEST</option><option>EAST</option><option>SOUTH</option>
+                    </select>
+                </div>
+                
+                <div style="width: 100%;">
+                    <select class="filter-select" id="fl-pos" onchange="handleFilterPosChange()" style="width: 100%;">
+                        <option value="">All positions</option>
+                        <option>CEO</option><option>CFO</option><option>OWNER</option><option>BARTENDER</option><option>F&amp;B MANAGER</option><option>MANAGER</option>
+                        <option value="__other__">ETC — Please Type</option>
+                    </select>
+                    <input class="filter-select" type="text" id="fl-pos-other" placeholder="Type to search position..." oninput="debounceSearch()" style="display: none; width: 100%; margin-top: 8px;">
+                </div>
+                
+                <div id="fl-date-wrap" style="display: flex; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--card-bg); overflow: hidden; align-items: stretch; transition: 0.2s;">
+                    <input type="text" id="fl-date" placeholder="Filter by date" data-input style="flex: 1; border: none; outline: none; padding: 10px 14px; background: transparent; font-family: inherit; font-size: 13px; color: var(--text-main); width: 100%;">
+                    <button type="button" title="Clear Date" data-clear style="background: transparent; border: none; border-left: 1px solid var(--border-light); cursor: pointer; color: var(--text-muted); padding: 0 14px; font-size: 14px; transition: 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-muted)'">✕</button>
+                </div>
+                
+                <div style="width: 100%;">
+                    <input class="filter-select" type="text" id="fl-search" placeholder="Search outlet..." oninput="debounceSearch()" style="width: 100%;">
+                </div>
             </div>
             
             <div id="visit-list-loading" style="display: none;">
