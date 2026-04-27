@@ -33,7 +33,10 @@ let AppState = {
     supabaseClient: null,
     realtimeChannel: null,
     totalPages: 1,
-    totalCount: 0
+    totalCount: 0,
+    fpDate: null,
+    fpNextDate: null,
+    fpFilterDate: null
 };
 
 // ============================================================
@@ -79,7 +82,32 @@ function checkSession() {
 }
 
 function initApp() {
-    document.getElementById('f-date').value = today();
+    AppState.fpDate = flatpickr("#f-date", {
+        altInput: true,
+        altFormat: "d M Y", 
+        dateFormat: "Y-m-d", 
+        defaultDate: "today",
+        minDate: "today", 
+        maxDate: "today"
+    });
+
+    AppState.fpNextDate = flatpickr("#f-next-date", {
+        altInput: true,
+        altFormat: "d M Y",
+        dateFormat: "Y-m-d",
+        minDate: "today"
+    });
+
+    AppState.fpFilterDate = flatpickr("#fl-date-wrap", {
+        wrap: true, 
+        altInput: true,
+        altFormat: "d M Y",
+        dateFormat: "Y-m-d",
+        onChange: function(selectedDates, dateStr, instance) {
+            resetAndFetch(); 
+        }
+    });
+
     bindPositionToggle();
     updateFormState();
 
@@ -99,7 +127,9 @@ function initApp() {
         cbNext._bound = true;
         cbNext.addEventListener('change', function() {
             document.getElementById('next-visit-wrap').style.display = this.checked ? 'block' : 'none';
-            if (this.checked) document.getElementById('f-next-date').value = today();
+            if (this.checked && AppState.fpNextDate) {
+                AppState.fpNextDate.setDate(today());
+            }
         });
     }
 
@@ -111,6 +141,19 @@ function initApp() {
         loadVisitsFromDB();
         setupRealtime();
     }
+}
+
+window.handleFilterPosChange = function() {
+    const pos = document.getElementById('fl-pos').value;
+    const otherInput = document.getElementById('fl-pos-other');
+    if (pos === '__other__') {
+        otherInput.style.display = 'block';
+        otherInput.focus();
+    } else {
+        otherInput.style.display = 'none';
+        otherInput.value = '';
+    }
+    resetAndFetch();
 }
 
 // ============================================================
@@ -228,6 +271,24 @@ window.togglePasswordVisibility = function() {
 // ============================================================
 // DATABASE & STORAGE OPERATIONS
 // ============================================================
+
+window.resetAndFetch = function() {
+    AppState.currentPage = 0;
+    if (AppState.supabaseClient) {
+        fetchVisitsWithSkeleton();
+    } else {
+        window.renderList();
+    }
+}
+
+let searchTimeout;
+window.debounceSearch = function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        window.resetAndFetch();
+    }, 500);
+}
+
 async function loadVisitsFromDB() {
     if (!AppState.supabaseClient) return;
     
@@ -247,6 +308,33 @@ async function loadVisitsFromDB() {
             countQuery = countQuery.eq('creator_email', AppState.userProfile.email);
         }
 
+        const filterArea = document.getElementById('fl-area') ? document.getElementById('fl-area').value : '';
+        let filterPos = document.getElementById('fl-pos') ? document.getElementById('fl-pos').value : '';
+        const filterDate = document.getElementById('fl-date') ? document.getElementById('fl-date').value : '';
+        const filterSearch = document.getElementById('fl-search') ? document.getElementById('fl-search').value.toLowerCase().trim() : '';
+
+        if (filterPos === '__other__') {
+            filterPos = document.getElementById('fl-pos-other') ? document.getElementById('fl-pos-other').value.trim() : '';
+        }
+
+        if (filterArea) {
+            visitsQuery = visitsQuery.eq('area', filterArea);
+            countQuery = countQuery.eq('area', filterArea);
+        }
+        if (filterPos) {
+            visitsQuery = visitsQuery.ilike('position', `%${filterPos}%`);
+            countQuery = countQuery.ilike('position', `%${filterPos}%`);
+        }
+        if (filterDate) {
+            visitsQuery = visitsQuery.eq('date', filterDate);
+            countQuery = countQuery.eq('date', filterDate);
+        }
+        if (filterSearch) {
+            const searchQ = `outlet.ilike.%${filterSearch}%,person.ilike.%${filterSearch}%`;
+            visitsQuery = visitsQuery.or(searchQ);
+            countQuery = countQuery.or(searchQ);
+        }
+
         visitsQuery = visitsQuery.order('created_at', { ascending: false }).range(rangeStart, rangeEnd);
 
         const [visitsRes, countRes, reqsRes] = await Promise.all([
@@ -257,7 +345,6 @@ async function loadVisitsFromDB() {
 
         if (visitsRes.error) throw visitsRes.error;
 
-        // คำนวณจำนวนหน้าทั้งหมดจาก count query แยก (ไม่ถูก .range() จำกัด)
         const totalCount = countRes.count || 0;
         AppState.totalCount = totalCount;
         AppState.totalPages = Math.max(1, Math.ceil(totalCount / CONFIG.PAGE_SIZE));
@@ -294,7 +381,6 @@ window.goToPage = function(page) {
     if (page < 0 || page >= AppState.totalPages) return;
     AppState.currentPage = page;
     fetchVisitsWithSkeleton();
-    // Scroll กลับขึ้นบน list
     document.getElementById('visit-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -312,9 +398,7 @@ function renderPagination() {
 
     let pages = [];
 
-    // สร้างเลขหน้าที่จะแสดง
     if (total <= 7) {
-        // แสดงทุกหน้าถ้าน้อยกว่า 7
         for (let i = 0; i < total; i++) pages.push(i);
     } else {
         pages.push(0);
@@ -493,7 +577,6 @@ window.selectFromLibrary = function() {
     document.getElementById('library-input').click(); 
 }
 
-// ฟังก์ชันช่วยบีบอัดรูปภาพ
 function compressImage(file, maxWidth = 1280, maxHeight = 1280, quality = 0.7) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -618,10 +701,16 @@ function loadAutoSaveData() {
         populateField('f-area', data.area);
         populateField('f-person', data.person);
         populateField('f-pos-other', data.posOther);
-        populateField('f-date', data.date);
         populateField('f-reason', data.reason);
         populateField('f-result', data.result);
-        populateField('f-next-date', data.nextDate);
+        
+        if (data.date && AppState.fpDate) {
+            AppState.fpDate.setDate(data.date);
+            hasData = true;
+        }
+        if (data.nextDate && AppState.fpNextDate) {
+            AppState.fpNextDate.setDate(data.nextDate);
+        }
 
         if (data.position) {
             document.getElementById('f-position').value = data.position;
@@ -664,7 +753,9 @@ window.clearForm = function() {
     document.getElementById('f-area').value = '';
     document.getElementById('f-position').value = '';
     document.getElementById('pos-other-wrap').style.display = 'none';
-    document.getElementById('f-date').value = today();
+    
+    if (AppState.fpDate) AppState.fpDate.setDate(today());
+    if (AppState.fpNextDate) AppState.fpNextDate.clear();
     
     document.querySelectorAll('.f-followup').forEach(cb => cb.checked = false);
     document.getElementById('next-visit-wrap').style.display = 'none';
@@ -905,14 +996,20 @@ async function fetchVisitsWithSkeleton() {
 
 window.renderList = function() {
     const area = document.getElementById('fl-area').value;
-    const pos = document.getElementById('fl-pos').value;
+    let pos = document.getElementById('fl-pos').value;
     const q = document.getElementById('fl-search').value.toLowerCase();
     const filterDate = document.getElementById('fl-date') ? document.getElementById('fl-date').value : '';
+
+    if (pos === '__other__') {
+        pos = document.getElementById('fl-pos-other') ? document.getElementById('fl-pos-other').value.toLowerCase().trim() : '';
+    } else {
+        pos = pos.toLowerCase();
+    }
 
     const filtered = AppState.visits.filter(v => {
         if (v.req_status === 'approved' || (v.is_deleted === true && v.req_status !== 'pending')) return false;
         if (area && v.area !== area) return false;
-        if (pos && !v.position.toLowerCase().includes(pos.toLowerCase())) return false;
+        if (pos && !v.position.toLowerCase().includes(pos)) return false;
         if (filterDate && v.date !== filterDate) return false;
         if (q && !v.outlet.toLowerCase().includes(q) && !v.person.toLowerCase().includes(q)) return false;
         return true;
@@ -1102,28 +1199,28 @@ window.enableModalEdit = function() {
             </div>
             <div>
                 <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; display: block;">Outlet Name</label>
-                <input type="text" id="m-outlet" value="${esc(AppState.pendingSaveData.outlet)}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                <input type="text" id="m-outlet" value="${esc(AppState.pendingSaveData.outlet)}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; background: transparent; color: var(--text-main);">
             </div>
             <div style="display: flex; gap: 10px;">
                 <div style="flex: 1;">
                     <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; display: block;">Area</label>
-                    <select id="m-area" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                    <select id="m-area" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; background: transparent; color: var(--text-main);">
                         ${areaOptions}
                     </select>
                 </div>
                 <div style="flex: 1;">
                     <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; display: block;">Date</label>
-                    <input type="date" id="m-date" value="${AppState.pendingSaveData.date}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                    <input type="text" id="m-date" value="${AppState.pendingSaveData.date}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; background: transparent; color: var(--text-main);">
                 </div>
             </div>
             <div style="display: flex; gap: 10px;">
                 <div style="flex: 1;">
                     <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; display: block;">Met With</label>
-                    <input type="text" id="m-person" value="${esc(AppState.pendingSaveData.person)}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                    <input type="text" id="m-person" value="${esc(AppState.pendingSaveData.person)}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; background: transparent; color: var(--text-main);">
                 </div>
                 <div style="flex: 1;">
                     <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; display: block;">Position</label>
-                    <select id="m-position-sel" onchange="document.getElementById('m-pos-other-wrap').style.display = this.value === '__other__' ? 'block' : 'none'" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                    <select id="m-position-sel" onchange="document.getElementById('m-pos-other-wrap').style.display = this.value === '__other__' ? 'block' : 'none'" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; background: transparent; color: var(--text-main);">
                         <option value="">Select position</option>
                         ${posOptions}
                         <option value="__other__" ${isOtherPos ? 'selected' : ''}>ETC — Please Type</option>
@@ -1131,15 +1228,15 @@ window.enableModalEdit = function() {
                 </div>
             </div>
             <div id="m-pos-other-wrap" style="display: ${isOtherPos ? 'block' : 'none'};">
-                <input type="text" id="m-pos-other" value="${isOtherPos ? esc(AppState.pendingSaveData.position) : ''}" placeholder="Specify Position" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none;">
+                <input type="text" id="m-pos-other" value="${isOtherPos ? esc(AppState.pendingSaveData.position) : ''}" placeholder="Specify Position" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; background: transparent; color: var(--text-main);">
             </div>
             <div>
                 <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; display: block;">Reason for Visit</label>
-                <textarea id="m-reason" rows="2" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; resize: vertical;">${esc(AppState.pendingSaveData.reason)}</textarea>
+                <textarea id="m-reason" rows="2" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; resize: vertical; background: transparent; color: var(--text-main);">${esc(AppState.pendingSaveData.reason)}</textarea>
             </div>
             <div>
                 <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px; display: block;">Result of Visit</label>
-                <textarea id="m-result" rows="2" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; resize: vertical;">${esc(AppState.pendingSaveData.rawResult || '')}</textarea>
+                <textarea id="m-result" rows="2" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 8px; font-family: inherit; font-size: 14px; outline: none; resize: vertical; background: transparent; color: var(--text-main);">${esc(AppState.pendingSaveData.rawResult || '')}</textarea>
             </div>
             <div style="margin-top: 4px; padding-bottom: 10px;">
                 <label style="font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; display: block;">Follow-up Actions</label>
@@ -1156,7 +1253,7 @@ window.enableModalEdit = function() {
                 </div>
                 <div id="m-next-date-wrap" style="display: ${f.fNext ? 'block' : 'none'}; margin-top: 10px; background: var(--bg-color); padding: 12px; border-radius: 8px; border: 1px solid var(--primary);">
                     <label style="font-size: 11px; color: var(--primary); display: block; margin-bottom: 6px;">Select Date for Next Visit:</label>
-                    <input type="date" id="m-next-date" value="${f.fNextDate || today()}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 6px; font-family: inherit; font-size: 14px; outline: none;">
+                    <input type="text" id="m-next-date" value="${f.fNextDate || today()}" style="width: 100%; padding: 10px 14px; border: 1px solid var(--primary); border-radius: 6px; font-family: inherit; font-size: 14px; outline: none; background: transparent; color: var(--text-main);">
                 </div>
             </div>
             
@@ -1182,6 +1279,22 @@ window.enableModalEdit = function() {
     `;
     document.getElementById('save-confirm-overlay').setAttribute('data-mode', 'edit');
     renderModalPhotos();
+
+    // เริ่มต้นการใช้งาน Flatpickr สำหรับโหมดแก้ไข
+    flatpickr("#m-date", {
+        altInput: true,
+        altFormat: "d M Y",
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        maxDate: "today"
+    });
+
+    flatpickr("#m-next-date", {
+        altInput: true,
+        altFormat: "d M Y",
+        dateFormat: "Y-m-d",
+        minDate: "today"
+    });
 }
 
 function renderModalPhotos() {
@@ -1236,16 +1349,27 @@ function today() {
 
 function fmtDate(d) { 
     if (!d) return ''; 
-    const [y, m, day] = d.split('-'); 
+    const dateObj = new Date(d);
+    if (isNaN(dateObj)) {
+        const parts = d.split(/[-/]/);
+        if (parts.length === 3) {
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            if (parts[0].length === 4) { 
+                return `${parseInt(parts[2])} ${months[parseInt(parts[1]) - 1]} ${parts[0]}`;
+            } else { 
+                return `${parseInt(parts[1])} ${months[parseInt(parts[0]) - 1]} ${parts[2]}`;
+            }
+        }
+        return d; 
+    }
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; 
-    return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`; 
+    return `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`; 
 }
 
 function updateCount() { 
     const el = document.getElementById('rec-count'); 
     if (!el) return; 
     
-    // ใช้ totalCount ที่ดึงจาก Supabase แทน เพื่อนับทุก page รวมกัน
     const count = AppState.totalCount || AppState.visits.filter(v => {
         if (v.req_status === 'approved' || (v.is_deleted === true && v.req_status !== 'pending')) return false;
         return true;
@@ -1477,7 +1601,6 @@ window.addEventListener('click', function(e) {
 // UX/UI PREMIUM FEATURES
 // ============================================================
 
-// --- 1. Dark Mode Toggle ---
 function initDarkMode() {
     const savedTheme = localStorage.getItem('checklist_theme');
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
